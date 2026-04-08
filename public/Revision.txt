@@ -1,7 +1,0 @@
-if (!empty($_POST)) {
-    echo "<div style='background:#000;color:#0f0;padding:10px;'>";
-    echo "<pre>";
-    print_r($_POST);
-    echo "</pre>";
-    echo "</div>";
-}
