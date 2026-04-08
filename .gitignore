@@ -1,0 +1,32 @@
+# Credenciales — nunca subir
+config/.env
+
+# Repositorio git anidado creado por error
+contratistas/
+
+# Dependencias PHP (se instalan con composer install)
+vendor/
+
+# Archivos subidos por usuarios
+storage/Asistencia/
+storage/asistencia/
+storage/**/*.xlsx
+storage/**/*.xls
+
+# Archivos temporales de sesión de carga
+storage/**/*_chunk*
+storage/**/*_filtered*
+
+# Archivos de log
+*.log
+logs/
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDEs
+.vscode/
+.idea/
+*.swp

@@ -1,0 +1,22 @@
+# Dependencias (se instalan en el build)
+vendor/
+
+# Archivos subidos y temporales
+storage/asistencia/*
+storage/Asistencia/*
+
+# Variables de entorno con credenciales reales
+config/.env
+
+# Archivos de desarrollo local
+.git/
+.gitignore
+*.md
+docker-compose.override.yml
+
+# Archivos XAMPP legacy / scripts sueltos
+Excel_Sol_dota.php
+Pre_Excel.php
+Pre_ExcelSeparado.php
+Pre_Excel_Tarifas.php
+conexion_Reloj.php

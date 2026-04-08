@@ -1,0 +1,60 @@
+services:
+
+  # ── Aplicación PHP / Apache ──────────────────────────────────────────────────
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: contratista_web
+    restart: unless-stopped
+    ports:
+      - "8080:80"          # http://localhost:8080/contratista/public
+    volumes:
+      # Código fuente montado en modo desarrollo (quitar en producción)
+      - .:/var/www/html/contratista
+      # Archivos subidos persistentes
+      - contratista_storage:/var/www/html/contratista/storage
+    environment:
+      - TZ=America/Santiago
+    env_file:
+      - config/.env
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    networks:
+      - contratista_net
+
+  # ── SQL Server 2022 (solo si no usas un servidor externo) ────────────────────
+  # Para usar tu SQL Server existente en vez de este contenedor:
+  #   1. Comenta o elimina este servicio
+  #   2. Pon la IP de tu servidor en config/.env  →  DB_SERVER=172.20.20.5
+  #   3. Quita el `depends_on` del servicio web
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: contratista_sqlserver
+    restart: unless-stopped
+    ports:
+      - "1433:1433"
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "${DB_PASSWORD}"
+      MSSQL_PID: "Developer"
+      TZ: "America/Santiago"
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+    healthcheck:
+      test: /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "$${MSSQL_SA_PASSWORD}" -Q "SELECT 1" || exit 1
+      interval: 10s
+      retries: 10
+      start_period: 30s
+      timeout: 5s
+    networks:
+      - contratista_net
+
+volumes:
+  contratista_storage:
+  sqlserver_data:
+
+networks:
+  contratista_net:
+    driver: bridge
