@@ -108,6 +108,25 @@ try {
         $accion_resp = "v{$version} creada";
     }
 
+    /* ── Limpiar descuentos previos de los contratistas que se actualizan ── */
+    $ids_ct_desc = array_map(fn($c) => (int)$c['id_contratista'], $contratistas);
+    $ph_desc = implode(',', array_fill(0, count($ids_ct_desc), '?'));
+    sqlsrv_query($conn,
+        "DELETE FROM dbo.dota_factura_descuento WHERE id_factura=? AND id_contratista IN ($ph_desc)",
+        array_merge([$id_factura], $ids_ct_desc));
+
+    /* ── Insertar descuentos por contratista ── */
+    foreach ($contratistas as $ct) {
+        $desc_val = (float)($ct['descuento'] ?? 0);
+        if ($desc_val > 0) {
+            db_query($conn,
+                "INSERT INTO dbo.dota_factura_descuento (id_factura, id_contratista, valor, observacion)
+                 VALUES (?, ?, ?, ?)",
+                [(int)$id_factura, (int)$ct['id_contratista'], $desc_val, 'Descuento cargado automáticamente'],
+                "INSERT descuento");
+        }
+    }
+
     /* ── Insertar detalle por contratista+cargo ── */
     $sql_det = "INSERT INTO dbo.dota_factura_detalle
         (id_factura, id_contratista, cargo_nombre, tarifa_nombre, especial, esp_nom,

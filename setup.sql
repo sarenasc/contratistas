@@ -379,6 +379,25 @@ CREATE TABLE [dbo].[dota_factura] (
 GO
 
 -- -------------------------------------------------------------
+-- dota_factura_descuento  (descuentos por contratista dentro de una proforma)
+-- Se pueden agregar manualmente desde la vista de proformas.
+-- ON DELETE CASCADE: al borrar la proforma se eliminan sus descuentos.
+-- -------------------------------------------------------------
+IF OBJECT_ID('dbo.dota_factura_descuento','U') IS NULL
+CREATE TABLE [dbo].[dota_factura_descuento] (
+    [id]             INT           IDENTITY(1,1) NOT NULL,
+    [id_factura]     INT           NOT NULL,
+    [id_contratista] INT           NOT NULL,
+    [valor]          DECIMAL(18,2) NOT NULL,
+    [observacion]    NVARCHAR(500) NULL,
+    [fecha_reg]      DATETIME      NOT NULL DEFAULT GETDATE(),
+    CONSTRAINT [PK_factura_descuento]    PRIMARY KEY ([id]),
+    CONSTRAINT [FK_fdc_factura]          FOREIGN KEY ([id_factura])     REFERENCES [dbo].[dota_factura]     ([id]) ON DELETE CASCADE,
+    CONSTRAINT [FK_fdc_contratista]      FOREIGN KEY ([id_contratista]) REFERENCES [dbo].[dota_contratista] ([id])
+);
+GO
+
+-- -------------------------------------------------------------
 -- dota_factura_detalle  (una fila por contratista+labor en la proforma)
 -- -------------------------------------------------------------
 IF OBJECT_ID('dbo.dota_factura_detalle','U') IS NULL

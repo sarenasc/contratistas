@@ -45,6 +45,7 @@ try {
 
 /* ── Cargar contratistas por proforma ── */
 $cont_by_pf = [];
+$desc_by_pf = [];   // [id_factura][id_contratista] = [[id, valor, obs], ...]
 if (!empty($proformas)) {
     $ids = array_column($proformas, 'id');
     $ph  = implode(',', array_fill(0, count($ids), '?'));
@@ -58,6 +59,20 @@ if (!empty($proformas)) {
              ORDER BY c.nombre", $ids, "Contratistas proforma");
         while ($rc = sqlsrv_fetch_array($sc, SQLSRV_FETCH_ASSOC))
             $cont_by_pf[(int)$rc['id_factura']][] = $rc['nombre'];
+    } catch (Throwable $ignore) {}
+
+    try {
+        $sd = db_query($conn,
+            "SELECT id, id_factura, id_contratista, valor, observacion
+             FROM dbo.dota_factura_descuento
+             WHERE id_factura IN ($ph)
+             ORDER BY id_factura, id_contratista, id", $ids, "Descuentos proforma");
+        while ($rd = sqlsrv_fetch_array($sd, SQLSRV_FETCH_ASSOC))
+            $desc_by_pf[(int)$rd['id_factura']][(int)$rd['id_contratista']][] = [
+                'id'    => (int)$rd['id'],
+                'valor' => (float)$rd['valor'],
+                'obs'   => $rd['observacion'],
+            ];
     } catch (Throwable $ignore) {}
 }
 
@@ -228,7 +243,12 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
           $grupos[$cid]['tot']    += (float)$f['total'];
       }
       ?>
-      <?php foreach ($grupos as $grupo): ?>
+      <?php foreach ($grupos as $cid_g => $grupo):
+        $desc_list = $desc_by_pf[$id][$cid_g] ?? [];
+        $desc_tot  = array_sum(array_column($desc_list, 'valor'));
+        $neto_ct   = $grupo['tot'] - $desc_tot;
+        $pf_abierta = ($pf['estado'] !== 'cerrado');
+      ?>
       <div class="mb-3">
         <div class="fw-semibold small mb-1"><?= htmlspecialchars($grupo['nombre']) ?></div>
         <div class="table-responsive">
@@ -268,10 +288,58 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
               <?php endforeach; ?>
             </tbody>
             <tfoot>
-              <tr class="table-dark fw-semibold">
-                <td colspan="9" class="text-end">Total <?= htmlspecialchars($grupo['nombre']) ?></td>
+              <tr class="table-secondary fw-semibold">
+                <td colspan="9" class="text-end">Subtotal <?= htmlspecialchars($grupo['nombre']) ?></td>
                 <td class="text-end"><?= fmt($grupo['tot']) ?></td>
               </tr>
+
+              <?php foreach ($desc_list as $dl): ?>
+              <tr class="table-danger" id="desc-row-<?= $dl['id'] ?>">
+                <td colspan="8" class="text-end text-danger small">
+                  Descuento<?= $dl['obs'] ? ': ' . htmlspecialchars($dl['obs']) : '' ?>
+                </td>
+                <td class="text-end text-danger fw-semibold">- <?= fmt($dl['valor']) ?></td>
+                <td class="text-end">
+                  <?php if ($pf_abierta): ?>
+                  <button type="button" class="btn btn-danger btn-sm py-0 px-1"
+                    onclick="eliminarDescuento(<?= $dl['id'] ?>, <?= $id ?>, this)"
+                    title="Eliminar descuento">×</button>
+                  <?php endif; ?>
+                </td>
+              </tr>
+              <?php endforeach; ?>
+
+              <?php if ($desc_tot > 0): ?>
+              <tr class="table-dark fw-bold" id="neto-row-<?= $id ?>-<?= $cid_g ?>">
+                <td colspan="9" class="text-end">Neto <?= htmlspecialchars($grupo['nombre']) ?></td>
+                <td class="text-end text-success" id="neto-val-<?= $id ?>-<?= $cid_g ?>"><?= fmt($neto_ct) ?></td>
+              </tr>
+              <?php else: ?>
+              <tr class="table-dark fw-semibold" id="neto-row-<?= $id ?>-<?= $cid_g ?>">
+                <td colspan="9" class="text-end">Total <?= htmlspecialchars($grupo['nombre']) ?></td>
+                <td class="text-end" id="neto-val-<?= $id ?>-<?= $cid_g ?>"><?= fmt($neto_ct) ?></td>
+              </tr>
+              <?php endif; ?>
+
+              <?php if ($pf_abierta): ?>
+              <tr>
+                <td colspan="10" class="bg-light py-2">
+                  <div class="d-flex gap-2 align-items-center flex-wrap" id="form-desc-<?= $id ?>-<?= $cid_g ?>">
+                    <span class="small text-muted">Agregar descuento:</span>
+                    <input type="number" class="form-control form-control-sm" style="width:130px"
+                           min="1" step="1" placeholder="Valor"
+                           id="desc-val-<?= $id ?>-<?= $cid_g ?>">
+                    <input type="text" class="form-control form-control-sm" style="width:220px"
+                           maxlength="200" placeholder="Observación (opcional)"
+                           id="desc-obs-<?= $id ?>-<?= $cid_g ?>">
+                    <button type="button" class="btn btn-outline-danger btn-sm"
+                      onclick="agregarDescuento(<?= $id ?>, <?= $cid_g ?>, this)">
+                      + Descuento
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              <?php endif; ?>
             </tfoot>
           </table>
         </div>
@@ -288,5 +356,86 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
 </div><!-- /accordion -->
 <?php endif; ?>
 </main>
+
+<script>
+function fmt(n) {
+    return '$' + Math.round(n).toLocaleString('es-CL');
+}
+
+function agregarDescuento(idFac, idCont, btn) {
+    var val = parseFloat(document.getElementById('desc-val-' + idFac + '-' + idCont).value);
+    var obs = document.getElementById('desc-obs-' + idFac + '-' + idCont).value.trim();
+    if (!val || val <= 0) { alert('Ingresa un valor mayor a 0.'); return; }
+
+    btn.disabled = true;
+    fetch('proforma_descuento.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ accion: 'agregar', id_factura: idFac, id_contratista: idCont, valor: val, observacion: obs })
+    })
+    .then(r => r.json())
+    .then(function(d) {
+        if (!d.ok) { alert('Error: ' + d.error); btn.disabled = false; return; }
+
+        /* Insertar fila de descuento antes del neto */
+        var netoRow = document.getElementById('neto-row-' + idFac + '-' + idCont);
+        var tr = document.createElement('tr');
+        tr.id = 'desc-row-' + d.id;
+        tr.className = 'table-danger';
+        tr.innerHTML =
+            '<td colspan="8" class="text-end text-danger small">Descuento' +
+            (obs ? ': ' + obs.replace(/</g,'&lt;') : '') + '</td>' +
+            '<td class="text-end text-danger fw-semibold">- ' + fmt(d.valor) + '</td>' +
+            '<td class="text-end"><button type="button" class="btn btn-danger btn-sm py-0 px-1"' +
+            ' onclick="eliminarDescuento(' + d.id + ',' + idFac + ',this)" title="Eliminar">×</button></td>';
+        netoRow.parentNode.insertBefore(tr, netoRow);
+
+        /* Actualizar neto del contratista */
+        actualizarTotalesProforma(idFac, d.totales);
+
+        /* Limpiar inputs */
+        document.getElementById('desc-val-' + idFac + '-' + idCont).value = '';
+        document.getElementById('desc-obs-' + idFac + '-' + idCont).value = '';
+        btn.disabled = false;
+    })
+    .catch(function() { alert('Error de red.'); btn.disabled = false; });
+}
+
+function eliminarDescuento(idDesc, idFac, btn) {
+    if (!confirm('¿Eliminar este descuento?')) return;
+    btn.disabled = true;
+    fetch('proforma_descuento.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ accion: 'eliminar', id: idDesc, id_factura: idFac })
+    })
+    .then(r => r.json())
+    .then(function(d) {
+        if (!d.ok) { alert('Error: ' + d.error); btn.disabled = false; return; }
+        var row = document.getElementById('desc-row-' + idDesc);
+        if (row) row.remove();
+        actualizarTotalesProforma(idFac, d.totales);
+    })
+    .catch(function() { alert('Error de red.'); btn.disabled = false; });
+}
+
+function actualizarTotalesProforma(idFac, totales) {
+    /* Actualiza el badge de total neto en el header del accordion */
+    var badge = document.querySelector('#pfc' + idFac + ' ~ * .text-success.fw-bold, #pfc' + idFac + ' .text-success.fw-bold');
+    /* Actualiza la tarjeta Neto a Pagar */
+    var cards = document.querySelectorAll('#pfc' + idFac + ' .accordion-body .card');
+    cards.forEach(function(c) {
+        if (c.querySelector('.small')?.textContent.trim() === 'Neto a Pagar') {
+            c.querySelector('.fw-bold').textContent = fmt(totales.total_neto);
+        }
+        if (c.querySelector('.small')?.textContent.trim() === 'Descuentos') {
+            c.querySelector('.fw-semibold').textContent = '- ' + fmt(totales.descuento);
+        }
+    });
+    /* Actualiza el header del accordion */
+    var hdr = document.querySelector('[data-bs-target="#pfc' + idFac + '"] .ms-auto');
+    if (hdr) hdr.textContent = fmt(totales.total_neto);
+}
+</script>
 
 <?php include __DIR__ . '/../partials/footer.php'; ?>
