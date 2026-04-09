@@ -45,7 +45,25 @@ try {
 $resultado    = [];
 $total_global = 0.0;   // suma de total_factura de todos los contratistas
 
-if ($filtro_semana > 0 && $filtro_anio > 0 && !$flash_error) {
+// Verificar lotes sin aprobación final para la semana/año seleccionados
+$lotes_sin_aprobar = [];
+if ($filtro_semana > 0 && $filtro_anio > 0) {
+    $stmtLotes = sqlsrv_query($conn,
+        "SELECT registro, estado, fecha_carga FROM dbo.dota_asistencia_lote
+         WHERE semana = ? AND anio = ? AND estado != 'listo_factura'
+         ORDER BY fecha_carga DESC",
+        [$filtro_semana, $filtro_anio]
+    );
+    if ($stmtLotes) {
+        while ($r = sqlsrv_fetch_array($stmtLotes, SQLSRV_FETCH_ASSOC)) {
+            if ($r['fecha_carga'] instanceof DateTime)
+                $r['fecha_carga'] = $r['fecha_carga']->format('d/m/Y H:i');
+            $lotes_sin_aprobar[] = $r;
+        }
+    }
+}
+
+if ($filtro_semana > 0 && $filtro_anio > 0 && !$flash_error && empty($lotes_sin_aprobar)) {
 
     $params     = [$filtro_semana, $filtro_anio];
     $whereContr = '';
@@ -386,6 +404,29 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
 
 <?php if ($flash_error): ?>
 <div class="alert alert-danger"><?= htmlspecialchars($flash_error) ?></div>
+<?php endif; ?>
+
+<?php if (!empty($lotes_sin_aprobar)): ?>
+<div class="alert alert-danger">
+    <strong>Atención:</strong> Hay <?= count($lotes_sin_aprobar) ?> lote(s) de la semana <?= $filtro_semana ?>/<?= $filtro_anio ?>
+    que aún no tienen aprobación final. No se puede generar la Pre-Factura hasta que todos estén en estado <strong>listo_factura</strong>.
+    <table class="table table-sm table-bordered mt-2 mb-0 bg-white">
+        <thead><tr><th>Lote</th><th>Estado</th><th>Fecha carga</th><th></th></tr></thead>
+        <tbody>
+        <?php foreach ($lotes_sin_aprobar as $ls): ?>
+        <tr>
+            <td><small><?= htmlspecialchars($ls['registro']) ?></small></td>
+            <td><span class="badge bg-<?= $ls['estado'] === 'pendiente' ? 'warning text-dark' : 'danger' ?>"><?= htmlspecialchars($ls['estado']) ?></span></td>
+            <td><?= htmlspecialchars($ls['fecha_carga']) ?></td>
+            <td>
+                <a href="<?= BASE_URL ?>/aprobacion/detalle_asistencia.php?registro=<?= urlencode($ls['registro']) ?>"
+                   class="btn btn-outline-secondary btn-sm">Ver</a>
+            </td>
+        </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
+</div>
 <?php endif; ?>
 
 <!-- ══════════ FILTROS ══════════ -->

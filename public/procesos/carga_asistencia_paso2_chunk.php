@@ -122,6 +122,18 @@ try {
     $pct        = (int)min(100, round($nextLine / max(1, $totalRows) * 100));
 
     if ($done) {
+        // Registrar el lote en dota_asistencia_lote (estado inicial: pendiente)
+        $semana_lote = $state['semana_lote'] ?? null;
+        $anio_lote   = $state['anio_lote']   ?? (int)date('Y');
+        $id_usuario_carga = $_SESSION['id_usuario'] ?? null;
+
+        sqlsrv_query($conn,
+            "IF NOT EXISTS (SELECT 1 FROM dbo.dota_asistencia_lote WHERE registro = ?)
+             INSERT INTO dbo.dota_asistencia_lote (registro, id_usuario_carga, semana, anio, estado)
+             VALUES (?, ?, ?, ?, 'pendiente')",
+            [$archivo, $archivo, $id_usuario_carga, $semana_lote, $anio_lote]
+        );
+
         unset($_SESSION['asistencia_paso2_state'], $_SESSION['asistencia_upload']);
         session_write_close();
         ob_end_clean();

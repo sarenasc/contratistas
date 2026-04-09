@@ -95,6 +95,22 @@ try {
         }
     }
 
+    // Capturar semana y año del primer registro para el lote
+    $semana_lote = null;
+    $anio_lote   = (int)date('Y');
+    $fpSample = fopen($filteredFile, 'r');
+    if ($fpSample) {
+        $firstLine = fgets($fpSample);
+        fclose($fpSample);
+        $sample = json_decode(trim($firstLine), true);
+        if ($sample) {
+            $semana_lote = isset($sample['SEMANA']) && $sample['SEMANA'] !== '' ? (int)$sample['SEMANA'] : null;
+            if (!empty($sample['FECHA'])) {
+                try { $anio_lote = (int)(new DateTime($sample['FECHA']))->format('Y'); } catch (Exception $ex) {}
+            }
+        }
+    }
+
     // Guardar estado para los chunks — sin re-leer el Excel
     $_SESSION['asistencia_paso2_state'] = [
         'archivo'         => $archivo,
@@ -110,6 +126,8 @@ try {
         'map_turno'       => $map_turno,
         'jefeByAreaTurno' => $jefeByAreaTurno,
         'obs'             => $obs,
+        'semana_lote'     => $semana_lote,
+        'anio_lote'       => $anio_lote,
     ];
 
     session_write_close();
