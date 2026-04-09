@@ -18,7 +18,7 @@ try {
     $obs         = mb_substr(trim($d['obs'] ?? ''), 0, 500);
     $estado      = in_array($d['estado'] ?? '', ['proceso','cerrado'], true) ? $d['estado'] : 'proceso';
     $contratistas = $d['contratistas'] ?? [];
-    $usuario     = $_SESSION['nom_usu'] ?? null;
+    $usuario     = nombre_usuario();
 
     if ($semana <= 0 || $anio <= 0) throw new RuntimeException("Semana/año inválidos.");
     if (empty($contratistas))       throw new RuntimeException("Sin contratistas seleccionados.");

@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/../_bootstrap.php';
-$username = $_SESSION['nom_usu'];
+$username = nombre_usuario();
 
 $flash_error = null;
 $flash_ok    = null;

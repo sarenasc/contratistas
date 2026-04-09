@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/../_bootstrap.php';
-$username = $_SESSION['nom_usu'];
+$username = nombre_usuario();
 
 // Agregar un nuevo registro
 if (isset($_POST['guardar'])) {

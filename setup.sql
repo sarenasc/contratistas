@@ -1,22 +1,22 @@
 -- =============================================================
 -- setup.sql — Contratista System
--- Script único para crear la base de datos y todas las tablas.
+-- Base de datos: Fact_contratista
 --
 -- Instrucciones:
---   1. Reemplazar ContratistaBD con el nombre real de la BD.
---   2. Ejecutar conectado a master (para el CREATE DATABASE).
---   3. Todo el resto se ejecuta dentro de la BD creada.
+--   1. Ejecutar conectado a master (para el CREATE DATABASE).
+--   2. Todo el resto se ejecuta dentro de la BD creada.
+--   3. La BD proforma_contratista NO se toca (sistema anterior).
 -- =============================================================
 
 -- =============================================================
 -- BASE DE DATOS
 -- =============================================================
-IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = N'ContratistaBD')
-    CREATE DATABASE ContratistaBD
+IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = N'Fact_contratista')
+    CREATE DATABASE Fact_contratista
         COLLATE Latin1_General_CI_AS;
 GO
 
-USE ContratistaBD;
+USE Fact_contratista;
 GO
 
 -- =============================================================
@@ -36,20 +36,98 @@ CREATE TABLE [dbo].[Area] (
 GO
 
 -- -------------------------------------------------------------
--- TRA_usuario
+-- dota_perfiles
+-- Perfiles del sistema:
+--   Administrador    → acceso total
+--   Edicion          → puede crear/editar, sin aprobar
+--   Aprobador-Edicion → puede aprobar y editar
+--   Visualizacion    → solo lectura
 -- -------------------------------------------------------------
-IF OBJECT_ID('dbo.TRA_usuario','U') IS NULL
-CREATE TABLE [dbo].[TRA_usuario] (
-    [id]       INT           IDENTITY(1,1) NOT NULL,
-    [nom_usu]  NVARCHAR(50)  NOT NULL,
-    [pass_usu] NVARCHAR(255) NOT NULL,
-    [id_area]  INT           NULL,
-    [Nombre]   NVARCHAR(100) NULL,
-    [Apellido] NVARCHAR(100) NULL,
-    [sistema1] NVARCHAR(50)  NULL,
-    CONSTRAINT [PK_TRA_usuario] PRIMARY KEY ([id]),
-    CONSTRAINT [FK_usuario_area] FOREIGN KEY ([id_area])
-        REFERENCES [dbo].[Area] ([id_area])
+IF OBJECT_ID('dbo.dota_perfiles','U') IS NULL
+CREATE TABLE [dbo].[dota_perfiles] (
+    [id_perfil]   INT           IDENTITY(1,1) NOT NULL,
+    [nombre]      NVARCHAR(50)  NOT NULL,
+    [descripcion] NVARCHAR(200) NULL,
+    CONSTRAINT [PK_dota_perfiles] PRIMARY KEY ([id_perfil])
+);
+GO
+
+IF NOT EXISTS (SELECT 1 FROM dbo.dota_perfiles WHERE nombre = 'Administrador')
+INSERT INTO dbo.dota_perfiles (nombre, descripcion) VALUES
+('Administrador',     'Acceso total al sistema'),
+('Edicion',           'Puede crear y editar, sin aprobar'),
+('Aprobador-Edicion', 'Puede aprobar asistencia y editar'),
+('Visualizacion',     'Solo lectura, sin edición');
+GO
+
+-- -------------------------------------------------------------
+-- dota_usuarios  (reemplaza a TRA_usuario)
+-- email: usado para notificaciones al subir/rechazar asistencia
+-- id_area: área propia del usuario (no confundir con áreas que puede aprobar)
+-- -------------------------------------------------------------
+IF OBJECT_ID('dbo.dota_usuarios','U') IS NULL
+CREATE TABLE [dbo].[dota_usuarios] (
+    [id_usuario]    INT           IDENTITY(1,1) NOT NULL,
+    [usuario]       NVARCHAR(50)  NOT NULL,
+    [password_hash] NVARCHAR(255) NOT NULL,
+    [nombre]        NVARCHAR(100) NULL,
+    [apellido]      NVARCHAR(100) NULL,
+    [email]         NVARCHAR(150) NULL,
+    [id_area]       INT           NULL,
+    [id_perfil]     INT           NOT NULL,
+    [activo]        BIT           NOT NULL DEFAULT 1,
+    CONSTRAINT [PK_dota_usuarios]  PRIMARY KEY ([id_usuario]),
+    CONSTRAINT [UQ_usuario_login]  UNIQUE      ([usuario]),
+    CONSTRAINT [FK_usuario_area]   FOREIGN KEY ([id_area])   REFERENCES [dbo].[Area]          ([id_area]),
+    CONSTRAINT [FK_usuario_perfil] FOREIGN KEY ([id_perfil]) REFERENCES [dbo].[dota_perfiles]  ([id_perfil])
+);
+GO
+
+-- -------------------------------------------------------------
+-- dota_usuario_modulos
+-- Define a qué módulos tiene acceso cada usuario.
+-- Módulos: 'configuraciones' | 'tarifas' | 'procesos' | 'contratista' | 'aprobacion'
+-- Los Administradores tienen acceso a todo sin necesitar filas aquí.
+-- -------------------------------------------------------------
+IF OBJECT_ID('dbo.dota_usuario_modulos','U') IS NULL
+CREATE TABLE [dbo].[dota_usuario_modulos] (
+    [id]         INT          IDENTITY(1,1) NOT NULL,
+    [id_usuario] INT          NOT NULL,
+    [modulo]     NVARCHAR(50) NOT NULL,
+    CONSTRAINT [PK_dota_usuario_modulos] PRIMARY KEY ([id]),
+    CONSTRAINT [UQ_usuario_modulo]       UNIQUE      ([id_usuario], [modulo]),
+    CONSTRAINT [FK_umod_usuario]         FOREIGN KEY ([id_usuario]) REFERENCES [dbo].[dota_usuarios] ([id_usuario])
+);
+GO
+
+-- -------------------------------------------------------------
+-- dota_usuario_areas
+-- Áreas que un usuario aprobador puede aprobar.
+-- Puede incluir áreas fuera de su propia área (id_area en dota_usuarios).
+-- -------------------------------------------------------------
+IF OBJECT_ID('dbo.dota_usuario_areas','U') IS NULL
+CREATE TABLE [dbo].[dota_usuario_areas] (
+    [id_usuario] INT NOT NULL,
+    [id_area]    INT NOT NULL,
+    CONSTRAINT [PK_dota_usuario_areas] PRIMARY KEY ([id_usuario], [id_area]),
+    CONSTRAINT [FK_uarea_usuario]      FOREIGN KEY ([id_usuario]) REFERENCES [dbo].[dota_usuarios] ([id_usuario]),
+    CONSTRAINT [FK_uarea_area]         FOREIGN KEY ([id_area])    REFERENCES [dbo].[Area]           ([id_area])
+);
+GO
+
+-- -------------------------------------------------------------
+-- dota_usuario_cargos
+-- Cargos específicos que un usuario puede aprobar aunque no pertenezcan
+-- a sus áreas asignadas.
+-- Ejemplo: Orlando (Packing) puede aprobar "Armados de materiales" de Bodega.
+-- -------------------------------------------------------------
+IF OBJECT_ID('dbo.dota_usuario_cargos','U') IS NULL
+CREATE TABLE [dbo].[dota_usuario_cargos] (
+    [id_usuario] INT NOT NULL,
+    [id_cargo]   INT NOT NULL,
+    CONSTRAINT [PK_dota_usuario_cargos] PRIMARY KEY ([id_usuario], [id_cargo]),
+    CONSTRAINT [FK_ucargo_usuario]      FOREIGN KEY ([id_usuario]) REFERENCES [dbo].[dota_usuarios] ([id_usuario])
+    -- FK a Dota_Cargo se agrega luego de crear esa tabla
 );
 GO
 
@@ -67,7 +145,6 @@ GO
 
 -- -------------------------------------------------------------
 -- Dota_Cargo  (labores/cargos)
--- fecha_ingreso: fecha de alta del cargo en el sistema
 -- -------------------------------------------------------------
 IF OBJECT_ID('dbo.Dota_Cargo','U') IS NULL
 CREATE TABLE [dbo].[Dota_Cargo] (
@@ -77,10 +154,18 @@ CREATE TABLE [dbo].[Dota_Cargo] (
     [cod_fact]      NVARCHAR(50)  NULL,
     [id_mo]         INT           NULL,
     [fecha_ingreso] DATETIME      NULL DEFAULT GETDATE(),
-    CONSTRAINT [PK_Dota_Cargo] PRIMARY KEY ([id_cargo]),
-    CONSTRAINT [FK_cargo_tipo_mo] FOREIGN KEY ([id_mo])
-        REFERENCES [dbo].[dota_tipo_mo] ([id_mo])
+    CONSTRAINT [PK_Dota_Cargo]    PRIMARY KEY ([id_cargo]),
+    CONSTRAINT [FK_cargo_tipo_mo] FOREIGN KEY ([id_mo]) REFERENCES [dbo].[dota_tipo_mo] ([id_mo])
 );
+GO
+
+-- Ahora que Dota_Cargo existe, agregamos la FK pendiente en dota_usuario_cargos
+IF NOT EXISTS (
+    SELECT 1 FROM sys.foreign_keys
+    WHERE name = 'FK_ucargo_cargo'
+)
+ALTER TABLE [dbo].[dota_usuario_cargos]
+    ADD CONSTRAINT [FK_ucargo_cargo] FOREIGN KEY ([id_cargo]) REFERENCES [dbo].[Dota_Cargo] ([id_cargo]);
 GO
 
 -- -------------------------------------------------------------
@@ -153,19 +238,16 @@ CREATE TABLE [dbo].[Dota_Valor_Dotacion] (
     [id_tipo_tarifa]   INT NULL,
     [id_especie]       INT NULL,
     [id_contratista]   INT NULL,
-    CONSTRAINT [PK_Dota_Valor_Dotacion] PRIMARY KEY ([id]),
-    CONSTRAINT [FK_valor_cargo]          FOREIGN KEY ([id_cargo])       REFERENCES [dbo].[Dota_Cargo]        ([id_cargo]),
-    CONSTRAINT [FK_valor_tipo_tarifa]    FOREIGN KEY ([id_tipo_tarifa]) REFERENCES [dbo].[Dota_tipo_tarifa]  ([id_tipo_tarifa]),
-    CONSTRAINT [FK_valor_especie]        FOREIGN KEY ([id_especie])     REFERENCES [dbo].[especie]            ([id_especie]),
-    CONSTRAINT [FK_valor_dotacion_cont]  FOREIGN KEY ([id_contratista]) REFERENCES [dbo].[dota_contratista]  ([id])
+    CONSTRAINT [PK_Dota_Valor_Dotacion]     PRIMARY KEY ([id]),
+    CONSTRAINT [FK_valor_cargo]             FOREIGN KEY ([id_cargo])       REFERENCES [dbo].[Dota_Cargo]       ([id_cargo]),
+    CONSTRAINT [FK_valor_tipo_tarifa]       FOREIGN KEY ([id_tipo_tarifa]) REFERENCES [dbo].[Dota_tipo_tarifa] ([id_tipo_tarifa]),
+    CONSTRAINT [FK_valor_especie]           FOREIGN KEY ([id_especie])     REFERENCES [dbo].[especie]           ([id_especie]),
+    CONSTRAINT [FK_valor_dotacion_cont]     FOREIGN KEY ([id_contratista]) REFERENCES [dbo].[dota_contratista] ([id])
 );
 GO
 
 -- -------------------------------------------------------------
 -- Dota_Tarifa_Especiales  (cabecera de tarifas especiales por fecha)
--- valor_base / HH_EE_base: monto fijo del día especial
--- porc_contratista / porc_hhee: factores de recargo empresa
--- fecha: fecha del día especial (feriado, etc.)
 -- -------------------------------------------------------------
 IF OBJECT_ID('dbo.Dota_Tarifa_Especiales','U') IS NULL
 CREATE TABLE [dbo].[Dota_Tarifa_Especiales] (
@@ -211,14 +293,14 @@ CREATE TABLE [dbo].[dota_descuento] (
     [valor]          DECIMAL(18,2) NULL,
     [fecha]          DATE          NULL,
     [observacion]    NVARCHAR(500) NULL,
-    CONSTRAINT [PK_dota_descuento] PRIMARY KEY ([id]),
-    CONSTRAINT [FK_descuento_contratista] FOREIGN KEY ([id_contratista])
-        REFERENCES [dbo].[dota_contratista] ([id])
+    CONSTRAINT [PK_dota_descuento]          PRIMARY KEY ([id]),
+    CONSTRAINT [FK_descuento_contratista]   FOREIGN KEY ([id_contratista]) REFERENCES [dbo].[dota_contratista] ([id])
 );
 GO
 
 -- -------------------------------------------------------------
 -- dota_solicitud_contratista
+-- id_turno: turno solicitado (agregado en rediseño 2026-04)
 -- -------------------------------------------------------------
 IF OBJECT_ID('dbo.dota_solicitud_contratista','U') IS NULL
 CREATE TABLE [dbo].[dota_solicitud_contratista] (
@@ -226,6 +308,7 @@ CREATE TABLE [dbo].[dota_solicitud_contratista] (
     [contratista] INT  NULL,
     [cargo]       INT  NULL,
     [area]        INT  NULL,
+    [id_turno]    INT  NULL,
     [cantidad]    INT  NULL,
     [version]     INT  NULL DEFAULT 1,
     [fecha]       DATE NULL,
@@ -282,8 +365,10 @@ GO
 
 -- -------------------------------------------------------------
 -- dota_jefe_area
--- nivel_aprobacion: reservado para flujo de aprobación (a implementar)
--- id_turno: opcional, para áreas con jefe por turno
+-- id_usuario: vínculo con dota_usuarios (mismo registro de persona)
+-- nivel_aprobacion: 1=jefe área, 2=jefe operaciones
+-- Un área puede tener múltiples jefes (uno por turno).
+-- Si un jefe cubre más de un turno, se replica la fila o se deja id_turno NULL.
 -- -------------------------------------------------------------
 IF OBJECT_ID('dbo.dota_jefe_area','U') IS NULL
 CREATE TABLE [dbo].[dota_jefe_area] (
@@ -292,17 +377,42 @@ CREATE TABLE [dbo].[dota_jefe_area] (
     [rut]              NVARCHAR(20)  NULL,
     [id_area]          INT           NOT NULL,
     [id_turno]         INT           NULL,
+    [id_usuario]       INT           NULL,
     [nivel_aprobacion] TINYINT       NOT NULL DEFAULT 1,
     [activo]           BIT           NOT NULL DEFAULT 1,
     [fecha_reg]        DATETIME      NOT NULL DEFAULT GETDATE(),
-    CONSTRAINT [PK_dota_jefe_area] PRIMARY KEY ([id]),
-    CONSTRAINT [FK_jefe_area]  FOREIGN KEY ([id_area])  REFERENCES [dbo].[Area]       ([id_area]),
-    CONSTRAINT [FK_jefe_turno] FOREIGN KEY ([id_turno]) REFERENCES [dbo].[dota_turno] ([id])
+    CONSTRAINT [PK_dota_jefe_area]   PRIMARY KEY ([id]),
+    CONSTRAINT [FK_jefe_area]        FOREIGN KEY ([id_area])    REFERENCES [dbo].[Area]           ([id_area]),
+    CONSTRAINT [FK_jefe_turno]       FOREIGN KEY ([id_turno])   REFERENCES [dbo].[dota_turno]     ([id]),
+    CONSTRAINT [FK_jefe_usuario]     FOREIGN KEY ([id_usuario]) REFERENCES [dbo].[dota_usuarios]  ([id_usuario])
+);
+GO
+
+-- -------------------------------------------------------------
+-- dota_asistencia_lote
+-- Representa un archivo de asistencia subido (agrupa todos los registros
+-- con el mismo valor de campo "registro" en dota_asistencia_carga).
+-- estado: 'pendiente' → 'aprobado_area' → 'aprobado_ops' → 'listo_factura'
+--         o 'rechazado_area' / 'rechazado_ops' para rechazos
+-- El Pre-Factura solo puede ejecutarse cuando estado = 'listo_factura'.
+-- -------------------------------------------------------------
+IF OBJECT_ID('dbo.dota_asistencia_lote','U') IS NULL
+CREATE TABLE [dbo].[dota_asistencia_lote] (
+    [registro]          NVARCHAR(200) NOT NULL,
+    [fecha_carga]       DATETIME      NOT NULL DEFAULT GETDATE(),
+    [id_usuario_carga]  INT           NULL,
+    [semana]            INT           NULL,
+    [anio]              INT           NULL,
+    [estado]            NVARCHAR(30)  NOT NULL DEFAULT 'pendiente',
+    -- Estados: pendiente | aprobado_area | rechazado_area | aprobado_ops | rechazado_ops | listo_factura
+    CONSTRAINT [PK_dota_asistencia_lote]    PRIMARY KEY ([registro]),
+    CONSTRAINT [FK_lote_usuario]            FOREIGN KEY ([id_usuario_carga]) REFERENCES [dbo].[dota_usuarios] ([id_usuario])
 );
 GO
 
 -- -------------------------------------------------------------
 -- dota_asistencia_carga  (filas del Excel de asistencia)
+-- registro: clave que identifica el lote (FK lógica a dota_asistencia_lote)
 -- -------------------------------------------------------------
 IF OBJECT_ID('dbo.dota_asistencia_carga','U') IS NULL
 CREATE TABLE [dbo].[dota_asistencia_carga] (
@@ -334,6 +444,32 @@ CREATE TABLE [dbo].[dota_asistencia_carga] (
 GO
 
 -- -------------------------------------------------------------
+-- dota_asistencia_aprobacion
+-- Log de todas las acciones sobre un lote: aprobaciones, rechazos, ediciones.
+-- id_area + id_turno: especifican qué parte del lote se aprobó/rechazó.
+-- Un jefe de área puede aprobar/rechazar solo su área y turno.
+-- El jefe de operaciones aprueba/rechaza el lote completo (id_area NULL).
+-- -------------------------------------------------------------
+IF OBJECT_ID('dbo.dota_asistencia_aprobacion','U') IS NULL
+CREATE TABLE [dbo].[dota_asistencia_aprobacion] (
+    [id]          INT           IDENTITY(1,1) NOT NULL,
+    [registro]    NVARCHAR(200) NOT NULL,
+    [id_usuario]  INT           NOT NULL,
+    [accion]      NVARCHAR(20)  NOT NULL,
+    -- Valores: 'aprobado' | 'rechazado' | 'editado'
+    [observacion] NVARCHAR(500) NULL,
+    [fecha]       DATETIME      NOT NULL DEFAULT GETDATE(),
+    [id_area]     INT           NULL,
+    [id_turno]    INT           NULL,
+    CONSTRAINT [PK_dota_asistencia_aprobacion] PRIMARY KEY ([id]),
+    CONSTRAINT [FK_aprobacion_lote]    FOREIGN KEY ([registro])   REFERENCES [dbo].[dota_asistencia_lote] ([registro]),
+    CONSTRAINT [FK_aprobacion_usuario] FOREIGN KEY ([id_usuario]) REFERENCES [dbo].[dota_usuarios]        ([id_usuario]),
+    CONSTRAINT [FK_aprobacion_area]    FOREIGN KEY ([id_area])    REFERENCES [dbo].[Area]                 ([id_area]),
+    CONSTRAINT [FK_aprobacion_turno]   FOREIGN KEY ([id_turno])   REFERENCES [dbo].[dota_turno]           ([id])
+);
+GO
+
+-- -------------------------------------------------------------
 -- dota_asistencia_mapa  (memorización de mapeos Excel → sistema)
 -- tipo: 'area' | 'empleador' | 'cargo' | 'turno'
 -- -------------------------------------------------------------
@@ -343,15 +479,13 @@ CREATE TABLE [dbo].[dota_asistencia_mapa] (
     [tipo]        NVARCHAR(20)  NOT NULL,
     [valor_excel] NVARCHAR(300) NOT NULL,
     [id_sistema]  INT           NOT NULL,
-    CONSTRAINT [PK_asistencia_mapa]  PRIMARY KEY ([id]),
-    CONSTRAINT [UQ_mapa_tipo_valor]  UNIQUE      ([tipo], [valor_excel])
+    CONSTRAINT [PK_asistencia_mapa] PRIMARY KEY ([id]),
+    CONSTRAINT [UQ_mapa_tipo_valor] UNIQUE      ([tipo], [valor_excel])
 );
 GO
 
 -- -------------------------------------------------------------
 -- dota_factura  (cabecera de proforma/factura)
--- Una cabecera agrupa varios contratistas; version distingue
--- múltiples proformas para la misma semana/año.
 -- estado: 'proceso' | 'cerrado'
 -- -------------------------------------------------------------
 IF OBJECT_ID('dbo.dota_factura','U') IS NULL
@@ -373,15 +507,13 @@ CREATE TABLE [dbo].[dota_factura] (
     [tot_factura]    DECIMAL(18,2) NOT NULL CONSTRAINT [DF_factura_tot]  DEFAULT 0,
     [descuento]      DECIMAL(18,2) NOT NULL CONSTRAINT [DF_factura_desc] DEFAULT 0,
     [total_neto]     DECIMAL(18,2) NOT NULL CONSTRAINT [DF_factura_neto] DEFAULT 0,
-    CONSTRAINT [PK_dota_factura]          PRIMARY KEY ([id]),
-    CONSTRAINT [UQ_factura_sem_anio_ver]  UNIQUE      ([semana], [anio], [version])
+    CONSTRAINT [PK_dota_factura]         PRIMARY KEY ([id]),
+    CONSTRAINT [UQ_factura_sem_anio_ver] UNIQUE      ([semana], [anio], [version])
 );
 GO
 
 -- -------------------------------------------------------------
 -- dota_factura_descuento  (descuentos por contratista dentro de una proforma)
--- Se pueden agregar manualmente desde la vista de proformas.
--- ON DELETE CASCADE: al borrar la proforma se eliminan sus descuentos.
 -- -------------------------------------------------------------
 IF OBJECT_ID('dbo.dota_factura_descuento','U') IS NULL
 CREATE TABLE [dbo].[dota_factura_descuento] (
@@ -391,9 +523,9 @@ CREATE TABLE [dbo].[dota_factura_descuento] (
     [valor]          DECIMAL(18,2) NOT NULL,
     [observacion]    NVARCHAR(500) NULL,
     [fecha_reg]      DATETIME      NOT NULL DEFAULT GETDATE(),
-    CONSTRAINT [PK_factura_descuento]    PRIMARY KEY ([id]),
-    CONSTRAINT [FK_fdc_factura]          FOREIGN KEY ([id_factura])     REFERENCES [dbo].[dota_factura]     ([id]) ON DELETE CASCADE,
-    CONSTRAINT [FK_fdc_contratista]      FOREIGN KEY ([id_contratista]) REFERENCES [dbo].[dota_contratista] ([id])
+    CONSTRAINT [PK_factura_descuento] PRIMARY KEY ([id]),
+    CONSTRAINT [FK_fdc_factura]       FOREIGN KEY ([id_factura])     REFERENCES [dbo].[dota_factura]     ([id]) ON DELETE CASCADE,
+    CONSTRAINT [FK_fdc_contratista]   FOREIGN KEY ([id_contratista]) REFERENCES [dbo].[dota_contratista] ([id])
 );
 GO
 
@@ -443,19 +575,20 @@ SELECT
     c.[razon_social] AS contratista,
     g.[cargo]        AS cargo,
     a.[Area]         AS area,
+    t.[nombre_turno] AS turno,
     s.[version]
 FROM [dbo].[dota_solicitud_contratista] s
 LEFT JOIN [dbo].[dota_contratista] c ON c.[id]       = s.[contratista]
 LEFT JOIN [dbo].[Dota_Cargo]       g ON g.[id_cargo] = s.[cargo]
-LEFT JOIN [dbo].[Area]             a ON a.[id_area]  = s.[area];
+LEFT JOIN [dbo].[Area]             a ON a.[id_area]  = s.[area]
+LEFT JOIN [dbo].[dota_turno]       t ON t.[id]       = s.[id_turno];
 GO
 
 -- -------------------------------------------------------------
 -- vw_proformas_detalle
 -- Detalle completo de todas las proformas: granularidad una fila
 -- por asistencia (trabajador × día) asociada a una proforma.
--- Incluye tarifas efectivas (especial tiene prioridad sobre regular)
--- y montos calculados de facturación.
+-- Solo incluye asistencia de lotes con estado = 'listo_factura'.
 -- -------------------------------------------------------------
 CREATE OR ALTER VIEW dbo.vw_proformas_detalle
 AS
@@ -557,12 +690,18 @@ WITH raw AS (
 
     JOIN dbo.dota_contratista c ON c.id = fd.id_contratista
 
-    /* Asistencia de esa semana/año para ese contratista */
+    /* Asistencia de esa semana/año para ese contratista
+       Solo lotes con aprobación final completa */
     JOIN dbo.dota_asistencia_carga a
         ON  a.empleador     = c.id
         AND a.semana        = f.semana
         AND YEAR(a.fecha)   = f.anio
         AND (a.jornada > 0 OR a.hhee > 0)
+
+    /* Solo incluir registros de lotes aprobados */
+    JOIN dbo.dota_asistencia_lote l
+        ON  l.registro = a.registro
+        AND l.estado   = 'listo_factura'
 
     /* Lookups dimensionales */
     LEFT JOIN dbo.Area             ar ON ar.id_area      = a.area
@@ -596,7 +735,6 @@ WITH raw AS (
             src.esp_valor, src.esp_hhee,
             src.esp_porc, src.esp_porc_hhee, src.esp_bono
         FROM (
-            /* Fuente 1 – Dota_ValorEspecial_Dotacion (por cargo+fecha, más específica) */
             SELECT
                 dte.id_tipo             AS esp_id,
                 dte.tipo_Tarifa         AS esp_nom,
@@ -617,7 +755,6 @@ WITH raw AS (
                     )
                   )
             UNION ALL
-            /* Fuente 2 – Dota_Tarifa_Especiales global por fecha */
             SELECT
                 id_tipo, tipo_tarifa,
                 valor_base, HH_EE_base,
@@ -631,7 +768,6 @@ WITH raw AS (
         ORDER BY src.prioridad
     ) te
 )
-/* ── Capa final: agrega los montos calculados derivados ── */
 SELECT
     id_factura, semana, anio, version,
     estado_proforma, obs_proforma,
@@ -656,7 +792,6 @@ SELECT
 
     v_dia_ef, v_hhee_ef, porc_jorn_ef, porc_hhee_ef, bono_ef,
 
-    /* Montos calculados */
     CAST(jornada * v_dia_ef                                      AS DECIMAL(18,2)) AS base_jorn,
     CAST(hhee    * v_hhee_ef                                     AS DECIMAL(18,2)) AS base_hhee,
     CAST(jornada * v_dia_ef  * porc_jorn_ef                      AS DECIMAL(18,2)) AS pct_jorn,

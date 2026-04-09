@@ -4,7 +4,7 @@ require_once __DIR__ . '/../../vendor/autoload.php';
 
 use PhpOffice\PhpSpreadsheet\IOFactory;
 
-$username    = $_SESSION['nom_usu'];
+$username    = nombre_usuario();
 $flash_error = null;
 $flash_ok    = null;
 

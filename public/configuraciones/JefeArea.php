@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/../_bootstrap.php';
-$username = $_SESSION['nom_usu'];
+$username = nombre_usuario();
 
 $flash_error = null;
 $flash_ok    = null;
@@ -14,24 +14,32 @@ if ($qAreas) {
     }
 }
 
-// Cargar turnos (opcional — tabla puede no existir)
+// Cargar turnos
 $turnos = [];
-$chkT = sqlsrv_query($conn, "SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA='dbo' AND TABLE_NAME='dota_turno'");
-if ($chkT && sqlsrv_fetch($chkT)) {
-    $qT = sqlsrv_query($conn, "SELECT id, nombre_turno FROM dbo.dota_turno ORDER BY nombre_turno");
-    if ($qT) {
-        while ($r = sqlsrv_fetch_array($qT, SQLSRV_FETCH_ASSOC)) {
-            $turnos[(int)$r['id']] = (string)$r['nombre_turno'];
-        }
+$qT = sqlsrv_query($conn, "SELECT id, nombre_turno FROM dbo.dota_turno ORDER BY nombre_turno");
+if ($qT) {
+    while ($r = sqlsrv_fetch_array($qT, SQLSRV_FETCH_ASSOC)) {
+        $turnos[(int)$r['id']] = (string)$r['nombre_turno'];
+    }
+}
+
+// Cargar usuarios para vincular
+$usuarios_cat = [];
+$qU = sqlsrv_query($conn, "SELECT id_usuario, usuario, nombre, apellido FROM dbo.dota_usuarios WHERE activo = 1 ORDER BY nombre, apellido");
+if ($qU) {
+    while ($r = sqlsrv_fetch_array($qU, SQLSRV_FETCH_ASSOC)) {
+        $label = trim($r['nombre'] . ' ' . $r['apellido']) ?: $r['usuario'];
+        $usuarios_cat[(int)$r['id_usuario']] = $label;
     }
 }
 
 if (isset($_POST['guardar'])) {
-    $nombre   = trim($_POST['nombre']);
-    $rut      = trim($_POST['rut']);
-    $id_area  = (int)$_POST['id_area'];
-    $id_turno = (int)$_POST['id_turno'] ?: null;
-    $activo   = isset($_POST['activo']) ? 1 : 0;
+    $nombre     = trim($_POST['nombre']);
+    $rut        = trim($_POST['rut']);
+    $id_area    = (int)$_POST['id_area'];
+    $id_turno   = (int)$_POST['id_turno'] ?: null;
+    $id_usuario = (int)$_POST['id_usuario'] ?: null;
+    $activo     = isset($_POST['activo']) ? 1 : 0;
 
     if ($nombre === '') {
         $flash_error = "El nombre no puede estar vacío.";
@@ -39,8 +47,8 @@ if (isset($_POST['guardar'])) {
         $flash_error = "Debe seleccionar un área.";
     } else {
         $r = sqlsrv_query($conn,
-            "INSERT INTO dbo.dota_jefe_area (nombre, rut, id_area, id_turno, activo) VALUES (?, ?, ?, ?, ?)",
-            [$nombre, $rut ?: null, $id_area, $id_turno, $activo]
+            "INSERT INTO dbo.dota_jefe_area (nombre, rut, id_area, id_turno, id_usuario, activo) VALUES (?, ?, ?, ?, ?, ?)",
+            [$nombre, $rut ?: null, $id_area, $id_turno, $id_usuario, $activo]
         );
         if ($r === false) $flash_error = "Error al guardar: " . print_r(sqlsrv_errors(), true);
         else $flash_ok = "Jefe de área agregado correctamente.";
@@ -48,16 +56,17 @@ if (isset($_POST['guardar'])) {
 }
 
 if (isset($_POST['editar'])) {
-    $id       = (int)$_POST['id'];
-    $nombre   = trim($_POST['nombre']);
-    $rut      = trim($_POST['rut']);
-    $id_area  = (int)$_POST['id_area'];
-    $id_turno = (int)$_POST['id_turno'] ?: null;
-    $activo   = (int)$_POST['activo'];
+    $id         = (int)$_POST['id'];
+    $nombre     = trim($_POST['nombre']);
+    $rut        = trim($_POST['rut']);
+    $id_area    = (int)$_POST['id_area'];
+    $id_turno   = (int)$_POST['id_turno'] ?: null;
+    $id_usuario = (int)$_POST['id_usuario'] ?: null;
+    $activo     = (int)$_POST['activo'];
 
     $r = sqlsrv_query($conn,
-        "UPDATE dbo.dota_jefe_area SET nombre=?, rut=?, id_area=?, id_turno=?, activo=? WHERE id=?",
-        [$nombre, $rut ?: null, $id_area, $id_turno, $activo, $id]
+        "UPDATE dbo.dota_jefe_area SET nombre=?, rut=?, id_area=?, id_turno=?, id_usuario=?, activo=? WHERE id=?",
+        [$nombre, $rut ?: null, $id_area, $id_turno, $id_usuario, $activo, $id]
     );
     if ($r === false) $flash_error = "Error al editar: " . print_r(sqlsrv_errors(), true);
     else $flash_ok = "Jefe de área actualizado.";
@@ -71,7 +80,7 @@ if (isset($_POST['eliminar'])) {
 }
 
 $query = sqlsrv_query($conn,
-    "SELECT j.id, j.nombre, j.rut, j.id_area, a.Area, j.id_turno, t.nombre_turno, j.activo
+    "SELECT j.id, j.nombre, j.rut, j.id_area, a.Area, j.id_turno, t.nombre_turno, j.id_usuario, j.activo
      FROM dbo.dota_jefe_area j
      INNER JOIN dbo.Area a ON a.id_area = j.id_area
      LEFT  JOIN dbo.dota_turno t ON t.id = j.id_turno
@@ -129,6 +138,15 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
                             <?php endforeach; ?>
                         </select>
                     </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Usuario sistema <small class="text-muted">(opcional)</small></label>
+                        <select class="form-control" name="id_usuario">
+                            <option value="">-- Sin vincular --</option>
+                            <?php foreach ($usuarios_cat as $uid => $unom): ?>
+                            <option value="<?= $uid ?>"><?= htmlspecialchars($unom) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
                     <div class="col-md-1 d-flex align-items-end">
                         <div class="form-check mb-2">
                             <input class="form-check-input" type="checkbox" name="activo" id="chkActivo" checked>
@@ -145,12 +163,13 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
 
     <!-- Form oculto editar/eliminar -->
     <form id="form-accion" method="POST">
-        <input type="hidden" name="id"       id="f-id">
-        <input type="hidden" name="nombre"   id="f-nombre">
-        <input type="hidden" name="rut"      id="f-rut">
-        <input type="hidden" name="id_area"  id="f-id_area">
-        <input type="hidden" name="id_turno" id="f-id_turno">
-        <input type="hidden" name="activo"   id="f-activo">
+        <input type="hidden" name="id"          id="f-id">
+        <input type="hidden" name="nombre"      id="f-nombre">
+        <input type="hidden" name="rut"         id="f-rut">
+        <input type="hidden" name="id_area"     id="f-id_area">
+        <input type="hidden" name="id_turno"    id="f-id_turno">
+        <input type="hidden" name="id_usuario"  id="f-id_usuario">
+        <input type="hidden" name="activo"      id="f-activo">
         <button type="submit" name="editar"   id="f-btn-editar"   style="display:none"></button>
         <button type="submit" name="eliminar" id="f-btn-eliminar" style="display:none"></button>
     </form>
@@ -166,6 +185,7 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
                     <th>RUT</th>
                     <th>Área</th>
                     <th>Turno</th>
+                    <th>Usuario sistema</th>
                     <th>Activo</th>
                     <th>Acciones</th>
                 </tr>
@@ -178,6 +198,7 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
                     data-rut="<?= htmlspecialchars($row['rut'] ?? '') ?>"
                     data-id-area="<?= (int)$row['id_area'] ?>"
                     data-id-turno="<?= (int)($row['id_turno'] ?? 0) ?>"
+                    data-id-usuario="<?= (int)($row['id_usuario'] ?? 0) ?>"
                     data-activo="<?= (int)$row['activo'] ?>">
                     <td><?= (int)$row['id'] ?></td>
                     <td><input type="text" class="form-control inp-nombre" value="<?= htmlspecialchars($row['nombre']) ?>"></td>
@@ -201,6 +222,16 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
                             <?php endforeach; ?>
                         </select>
                     </td>
+                    <td>
+                        <select class="form-control inp-usuario">
+                            <option value="">-- Sin vincular --</option>
+                            <?php foreach ($usuarios_cat as $uid => $unom): ?>
+                            <option value="<?= $uid ?>" <?= $uid === (int)($row['id_usuario'] ?? 0) ? 'selected' : '' ?>>
+                                <?= htmlspecialchars($unom) ?>
+                            </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </td>
                     <td class="text-center">
                         <input type="checkbox" class="form-check-input inp-activo" <?= $row['activo'] ? 'checked' : '' ?>>
                     </td>
@@ -217,12 +248,13 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
     <script>
     function accion(tipo, btn) {
         const tr = btn.closest('tr');
-        document.getElementById('f-id').value       = tr.dataset.id;
-        document.getElementById('f-nombre').value   = tr.querySelector('.inp-nombre').value;
-        document.getElementById('f-rut').value      = tr.querySelector('.inp-rut').value;
-        document.getElementById('f-id_area').value  = tr.querySelector('.inp-area').value;
-        document.getElementById('f-id_turno').value = tr.querySelector('.inp-turno').value;
-        document.getElementById('f-activo').value   = tr.querySelector('.inp-activo').checked ? 1 : 0;
+        document.getElementById('f-id').value          = tr.dataset.id;
+        document.getElementById('f-nombre').value      = tr.querySelector('.inp-nombre').value;
+        document.getElementById('f-rut').value         = tr.querySelector('.inp-rut').value;
+        document.getElementById('f-id_area').value     = tr.querySelector('.inp-area').value;
+        document.getElementById('f-id_turno').value    = tr.querySelector('.inp-turno').value;
+        document.getElementById('f-id_usuario').value  = tr.querySelector('.inp-usuario').value;
+        document.getElementById('f-activo').value      = tr.querySelector('.inp-activo').checked ? 1 : 0;
         document.getElementById('f-btn-' + tipo).click();
     }
     </script>

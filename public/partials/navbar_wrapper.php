@@ -1,14 +1,16 @@
 <?php
 // Asumimos que la página ya hizo: require_once public/_bootstrap.php
-$username = $_SESSION['nom_usu'] ?? '';
+$display_name = nombre_usuario();
 ?>
 
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
   <div class="container-fluid px-3">
     <a class="navbar-brand" href="<?= BASE_URL ?>/Inicio.php">
       Sistema Contratista Condor de Apalta (Ex Almahue)
-      <?php if ($username): ?>
-        <small class="d-block text-muted">Usuario: <?= htmlspecialchars($username) ?></small>
+      <?php if ($display_name): ?>
+        <small class="d-block text-muted" style="font-size:.75rem;">
+          <?= htmlspecialchars($display_name) ?>
+        </small>
       <?php endif; ?>
     </a>
 
