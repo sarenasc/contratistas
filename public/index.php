@@ -10,6 +10,8 @@ if (isset($_SESSION['id']) && !empty($_SESSION['id'])){
     header("Location: Inicio.php");
     exit;
 }
+require_once __DIR__ . '/../app/lib/csrf.php';
+csrf_token();
 
 
 ?>
@@ -50,7 +52,14 @@ if (isset($_SESSION['id']) && !empty($_SESSION['id'])){
 <div class="container d-flex justify-content-center align-items-center" style="min-height: 80vh;">
     <div class="card p-4 shadow-lg" style="max-width: 400px; width: 100%;">
         <h3 class="text-center text-success mb-4">Inicio de Sesión</h3>
+        <?php if (isset($_GET['timeout'])): ?>
+        <div class="alert alert-warning">Sesión expirada por inactividad. Por favor inicie sesión nuevamente.</div>
+        <?php endif; ?>
+        <?php if (isset($_GET['err']) && $_GET['err'] === '1'): ?>
+        <div class="alert alert-danger">Error al iniciar sesión. Intente nuevamente.</div>
+        <?php endif; ?>
         <form method="post" action="login.php">
+            <?= csrf_field() ?>
             <div class="form-group">
                 <label for="username">Usuario</label>
                 <input type="text" class="form-control" id="username" name="user" placeholder="Ingrese su usuario" required>

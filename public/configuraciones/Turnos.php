@@ -11,7 +11,7 @@ if (isset($_POST['guardar'])) {
         $flash_error = "El nombre del turno no puede estar vacío.";
     } else {
         $r = sqlsrv_query($conn, "INSERT INTO [dbo].[dota_turno] (nombre_turno) VALUES (?)", [$nombre]);
-        if ($r === false) $flash_error = "Error al guardar: " . print_r(sqlsrv_errors(), true);
+        if ($r === false) $flash_error = "Error al guardar el turno. Intente nuevamente.";
         else $flash_ok = "Turno agregado correctamente.";
     }
 }
@@ -20,14 +20,14 @@ if (isset($_POST['editar'])) {
     $id     = (int)$_POST['id'];
     $nombre = trim($_POST['nombre_turno']);
     $r = sqlsrv_query($conn, "UPDATE [dbo].[dota_turno] SET nombre_turno = ? WHERE id = ?", [$nombre, $id]);
-    if ($r === false) $flash_error = "Error al editar: " . print_r(sqlsrv_errors(), true);
+    if ($r === false) $flash_error = "Error al editar el turno. Intente nuevamente.";
     else $flash_ok = "Turno actualizado.";
 }
 
 if (isset($_POST['eliminar'])) {
     $id = (int)$_POST['id'];
     $r = sqlsrv_query($conn, "DELETE FROM [dbo].[dota_turno] WHERE id = ?", [$id]);
-    if ($r === false) $flash_error = "Error al eliminar: " . print_r(sqlsrv_errors(), true);
+    if ($r === false) $flash_error = "Error al eliminar el turno. Intente nuevamente.";
     else $flash_ok = "Turno eliminado.";
 }
 
@@ -57,6 +57,7 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
         <div class="card-header">Agregar Nuevo Turno</div>
         <div class="card-body">
             <form method="POST">
+                <?= csrf_field() ?>
                 <div class="row g-3 align-items-end">
                     <div class="col-md-6">
                         <label class="form-label">Nombre del Turno</label>
@@ -72,6 +73,7 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
 
     <!-- Form oculto para editar/eliminar -->
     <form id="form-accion" method="POST">
+        <?= csrf_field() ?>
         <input type="hidden" name="id"           id="f-id">
         <input type="hidden" name="nombre_turno" id="f-nombre">
         <button type="submit" name="editar"   id="f-btn-editar"   style="display:none"></button>

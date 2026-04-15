@@ -185,6 +185,7 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
     <div class="card-header">Agregar Nueva Labor</div>
     <div class="card-body">
         <form method="POST">
+            <?= csrf_field() ?>
             <div class="row g-2">
                 <div class="col-md-4">
                     <label class="form-label">Labor</label>
@@ -247,6 +248,7 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
             <?php endif; ?>
 
             <form method="POST" enctype="multipart/form-data" class="d-flex gap-2 align-items-end">
+                <?= csrf_field() ?>
                 <div>
                     <label class="form-label mb-1">Archivo Excel</label>
                     <input type="file" name="archivo_excel" class="form-control" accept=".xlsx,.xls" required>
@@ -275,6 +277,7 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
 
 <!-- Form oculto para editar / eliminar -->
 <form id="form-accion" method="POST">
+    <?= csrf_field() ?>
     <input type="hidden" name="id_cargo" id="f-id_cargo">
     <input type="hidden" name="cargo"    id="f-cargo">
     <input type="hidden" name="id_mo"    id="f-id_mo">

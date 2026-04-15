@@ -42,7 +42,7 @@ if (isset($_POST['guardar'])) {
             "INSERT INTO dbo.dota_jefe_area (nombre, rut, id_area, id_turno, activo) VALUES (?, ?, ?, ?, ?)",
             [$nombre, $rut ?: null, $id_area, $id_turno, $activo]
         );
-        if ($r === false) $flash_error = "Error al guardar: " . print_r(sqlsrv_errors(), true);
+        if ($r === false) $flash_error = "Error al guardar. Intente nuevamente.";
         else $flash_ok = "Jefe de área agregado correctamente.";
     }
 }
@@ -59,14 +59,14 @@ if (isset($_POST['editar'])) {
         "UPDATE dbo.dota_jefe_area SET nombre=?, rut=?, id_area=?, id_turno=?, activo=? WHERE id=?",
         [$nombre, $rut ?: null, $id_area, $id_turno, $activo, $id]
     );
-    if ($r === false) $flash_error = "Error al editar: " . print_r(sqlsrv_errors(), true);
+    if ($r === false) $flash_error = "Error al editar. Intente nuevamente.";
     else $flash_ok = "Jefe de área actualizado.";
 }
 
 if (isset($_POST['eliminar'])) {
     $id = (int)$_POST['id'];
     $r = sqlsrv_query($conn, "DELETE FROM dbo.dota_jefe_area WHERE id=?", [$id]);
-    if ($r === false) $flash_error = "Error al eliminar: " . print_r(sqlsrv_errors(), true);
+    if ($r === false) $flash_error = "Error al eliminar. Intente nuevamente.";
     else $flash_ok = "Jefe de área eliminado.";
 }
 
@@ -102,6 +102,7 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
         <div class="card-header">Agregar Nuevo Jefe de Área</div>
         <div class="card-body">
             <form method="POST">
+                <?= csrf_field() ?>
                 <div class="row g-3 align-items-end">
                     <div class="col-md-3">
                         <label class="form-label">Nombre</label>
@@ -145,6 +146,7 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
 
     <!-- Form oculto editar/eliminar -->
     <form id="form-accion" method="POST">
+        <?= csrf_field() ?>
         <input type="hidden" name="id"       id="f-id">
         <input type="hidden" name="nombre"   id="f-nombre">
         <input type="hidden" name="rut"      id="f-rut">

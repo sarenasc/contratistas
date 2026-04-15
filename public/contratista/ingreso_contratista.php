@@ -65,6 +65,7 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
 
         <!-- Formulario para agregar un nuevo registro -->
         <form method="POST" class="mb-4">
+            <?= csrf_field() ?>
             <div class="form-row">
                 <div class="form-group col-md-4">
                     <label for="razon_social">Razón Social</label>
@@ -113,6 +114,7 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
                 <?php while ($row = sqlsrv_fetch_array($query, SQLSRV_FETCH_ASSOC)) { ?>
                     <tr>
                         <form method="POST">
+                            <?= csrf_field() ?>
                             <td><?php echo $row['id']; ?></td>
                             <td><input type="text" name="razon_social" value="<?php echo htmlspecialchars($row['razon_social']); ?>" class="form-control"></td>
                             <td><input type="text" name="rut" value="<?php echo htmlspecialchars($row['rut']); ?>" class="form-control"></td>

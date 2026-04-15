@@ -14,6 +14,7 @@ require_once __DIR__ . '/base_url.php';
                 <!--<a class="dropdown-item" href="<?= BASE_URL ?>/procesos/Rev_datos.php">Revision de Datos</a>-->
                 <!--<a class="dropdown-item" href="<?= BASE_URL ?>/procesos/edicion_turno.php">Editar Turnos</a>-->
                 <a class="dropdown-item" href="<?= BASE_URL ?>/procesos/carga_asistencia.php">Carga Asistencia</a>
+                <a class="dropdown-item" href="<?= BASE_URL ?>/procesos/eliminar_asistencia.php">Eliminar Asistencia</a>
                 <a class="dropdown-item" href="<?= BASE_URL ?>/procesos/descuento.php">Descuento</a>
                 <a class="dropdown-item" href="<?= BASE_URL ?>/procesos/Pre-Factura.php">Pre Factura</a>
                 <a class="dropdown-item" href="<?= BASE_URL ?>/procesos/proformas.php">Proformas</a>

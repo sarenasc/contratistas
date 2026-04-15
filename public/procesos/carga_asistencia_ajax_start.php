@@ -4,6 +4,8 @@ ob_start();
 
 require_once __DIR__ . '/../_bootstrap.php';
 require_once __DIR__ . '/../../vendor/autoload.php';
+require_once __DIR__ . '/../../app/lib/storage_cleanup.php';
+cleanup_asistencia_storage(7);
 
 use PhpOffice\PhpSpreadsheet\IOFactory;
 

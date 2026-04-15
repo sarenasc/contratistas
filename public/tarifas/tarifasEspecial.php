@@ -120,8 +120,8 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
                     </div>
                 <div class="card-body">
                             <form method="POST">
+                                <?= csrf_field() ?>
 
-                    
                                         <div class="row g-3">
                                                 <div class="form-group col-12 col-md-6">
                                                 <label>Nombre Tarifa</label>
@@ -130,14 +130,14 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
 
                                                 <div class="form-group col-12 col-md-6">
                                                 <label>Valor Base</label>
-                                                <input type="number" step="any" class="form-control" name="valor_base" required>
+                                                <input type="number" step="0.0001" class="form-control" name="valor_base" required>
                                                 </div>
                                         </div>
 
                                         <div class="row g-3">
                                                 <div class="form-group col-12 col-md-6">
                                                 <label>Valor Base HHEE</label>
-                                                <input type="number" step="any" class="form-control" name="base_hhee" required>
+                                                <input type="number" step="0.0001" class="form-control" name="base_hhee" required>
                                                 </div>
 
                                                 <div class="form-group col-12 col-md-6">
@@ -149,11 +149,11 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
                                         <div class="row g-3">
                                                 <div class="form-group col-12 col-md-6">
                                                 <label>Porcentaje contratista del valor base</label>
-                                                <input type="number" step="any" class="form-control" name="porcentaje_base" placeholder="ej: 0.125" required>
+                                                <input type="number" step="0.0001" class="form-control" name="porcentaje_base" placeholder="ej: 0.125" required>
                                                 </div>
                                                 <div class="form-group col-12 col-md-6">
                                                 <label>Porcentaje contratista de HHEE</label>
-                                                <input type="number" step="any" class="form-control" name="por_hhee" placeholder="ej: 0.125" required>
+                                                <input type="number" step="0.0001" class="form-control" name="por_hhee" placeholder="ej: 0.125" required>
                                                 </div>
                                         </div>
                                            
@@ -189,27 +189,26 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
                 </tr>
             </thead>
             <tbody>
-                <?php while ($query && $row = sqlsrv_fetch_array($query, SQLSRV_FETCH_ASSOC)) { ?>
+                <?php while ($query && $row = sqlsrv_fetch_array($query, SQLSRV_FETCH_ASSOC)):
+                    $fid = 'frow-' . $row['id_tipo'];
+                ?>
+                    <form id="<?= $fid ?>" method="POST"></form>
                     <tr>
-                        <form method="POST">
-                            $
-                        
-                            <td><?= $row['id_tipo']; ?></td>
-                            <td><input type="text" name="nombre" value="<?= $row['tipo_tarifa']; ?>" class="form-control"></td>
-                            <td><input type="date" name="fecha" value="<?= $row['fecha']->format('Y-m-d'); ?>" class="form-control"></td>
-                            <td><input type="number" step="any" name="valor_base" value="<?= rtrim(rtrim(number_format((float)($row['valor_base'] ?? 0), 6, '.', ''), '0'), '.') ?>" class="form-control"></td>
-                            <td><input type="number" step="any" name="base_hhee" value="<?= rtrim(rtrim(number_format((float)($row['HH_EE_base'] ?? 0), 6, '.', ''), '0'), '.') ?>" class="form-control"></td>
-                            <td><input type="number" step="any" name="porcentaje_base" value="<?= rtrim(rtrim(number_format((float)($row['porc_contratista'] ?? 0), 6, '.', ''), '0'), '.') ?>" class="form-control"></td>
-                            <td><input type="number" step="any" name="por_hhee" value="<?= rtrim(rtrim(number_format((float)($row['porc_hhee'] ?? 0), 6, '.', ''), '0'), '.') ?>" class="form-control"></td>
-                            
-                            <td>
-                                <input type="hidden" name="id_tipo" value="<?= $row['id_tipo']; ?>">
-                                <button type="submit" name="editar" class="btn btn-warning btn-sm">Editar</button>
-                                <button type="submit" name="eliminar" class="btn btn-danger btn-sm">Eliminar</button>
-                            </td>
-                        </form>
+                        <td><?= $row['id_tipo'] ?></td>
+                        <td><input type="text"   form="<?= $fid ?>" name="nombre"          value="<?= htmlspecialchars($row['tipo_tarifa']) ?>" class="form-control form-control-sm"></td>
+                        <td><input type="date"   form="<?= $fid ?>" name="fecha"           value="<?= $row['fecha']->format('Y-m-d') ?>" class="form-control form-control-sm"></td>
+                        <td><input type="number" form="<?= $fid ?>" name="valor_base"      value="<?= number_format((float)($row['valor_base']       ?? 0), 4, '.', '') ?>" step="0.0001" class="form-control form-control-sm"></td>
+                        <td><input type="number" form="<?= $fid ?>" name="base_hhee"       value="<?= number_format((float)($row['HH_EE_base']       ?? 0), 4, '.', '') ?>" step="0.0001" class="form-control form-control-sm"></td>
+                        <td><input type="number" form="<?= $fid ?>" name="porcentaje_base" value="<?= number_format((float)($row['porc_contratista'] ?? 0), 4, '.', '') ?>" step="0.0001" class="form-control form-control-sm"></td>
+                        <td><input type="number" form="<?= $fid ?>" name="por_hhee"        value="<?= number_format((float)($row['porc_hhee']        ?? 0), 4, '.', '') ?>" step="0.0001" class="form-control form-control-sm"></td>
+                        <td>
+                            <input type="hidden" form="<?= $fid ?>" name="id_tipo" value="<?= $row['id_tipo'] ?>">
+                            <button type="submit" form="<?= $fid ?>" name="editar"    class="btn btn-warning btn-sm">Editar</button>
+                            <button type="submit" form="<?= $fid ?>" name="eliminar"  class="btn btn-danger btn-sm"
+                                    onclick="return confirm('¿Eliminar este registro?')">Eliminar</button>
+                        </td>
                     </tr>
-                <?php } ?>
+                <?php endwhile; ?>
             </tbody>
         </table>
     </div>

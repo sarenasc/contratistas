@@ -1,8 +1,14 @@
 <?php
 require_once __DIR__ . '/../config/conexion.php';
+require_once __DIR__ . '/../app/lib/csrf.php';
 session_start();
 
 if(isset($_POST['inicio'])){
+    // Verificar CSRF antes de procesar el login
+    if (!csrf_verify()) {
+        header("Location: index.php?err=csrf");
+        exit;
+    }
     $usuario = isset($_POST['user']) ? trim($_POST['user']) : '';
     $pass    = isset($_POST['pass']) ? $_POST['pass']       : '';
 

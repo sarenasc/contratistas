@@ -56,6 +56,7 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
         <div class="card-header">Agregar Nuevo Usuario</div>
         <div class="card-body">
             <form method="POST">
+                <?= csrf_field() ?>
                 <div class="row g-3">
                     <div class="col-md-3">
                         <label class="form-label">Nombre de Usuario</label>
@@ -97,6 +98,7 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
                 <?php while ($row = sqlsrv_fetch_array($query, SQLSRV_FETCH_ASSOC)): ?>
                 <tr>
                     <form method="POST">
+                        <?= csrf_field() ?>
                         <td><?= $row['id'] ?></td>
                         <td><input type="text" name="nom_usu" value="<?= htmlspecialchars($row['nom_usu']) ?>" class="form-control"></td>
                         <td><input type="password" name="pass_usu" class="form-control" placeholder="Nueva contraseña (dejar vacío para no cambiar)"></td>

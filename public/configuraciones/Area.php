@@ -46,6 +46,7 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
         <div class="card-header">Agregar Nueva Área</div>
         <div class="card-body">
             <form method="POST">
+                <?= csrf_field() ?>
                 <div class="row g-3">
                     <div class="col-md-6">
                         <label class="form-label">Nombre del Área</label>
@@ -63,6 +64,7 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
 
     <!-- Form oculto único para editar/eliminar -->
     <form id="form-accion" method="POST">
+        <?= csrf_field() ?>
         <input type="hidden" name="id_area"  id="f-id_area">
         <input type="hidden" name="area"     id="f-area">
         <input type="hidden" name="cod_fact" id="f-cod_fact">

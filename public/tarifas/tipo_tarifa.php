@@ -101,13 +101,14 @@ if (isset($_POST['toggle_activa']) || isset($_POST['toggle_caja']) || isset($_PO
             FROM dbo.Dota_Tipo_Tarifa
             WHERE Tipo_Tarifa = ?
               AND tarifa_activa = 1
-              AND id_tipo_Tarifa <> {$id}
+              AND id_tipo_Tarifa <> ?
               AND fecha_desde <= CAST(? AS DATE)
               AND fecha_hasta >= CAST(? AS DATE)
         ";
 
         $stmtCheck = db_query($conn, $sqlCheck, [
             $tipo,
+            $id,
             $hasta,
             $desde,
         ], 'CHECK overlap toggle');
@@ -160,13 +161,14 @@ if (isset($_POST['toggle_activa']) || isset($_POST['toggle_caja']) || isset($_PO
                                                     FROM dbo.Dota_Tipo_Tarifa
                                                     WHERE Tipo_Tarifa = ?
                                                     AND tarifa_activa = 1
-                                                    AND id_tipo_Tarifa <> {$id}
+                                                    AND id_tipo_Tarifa <> ?
                                                     AND fecha_desde <= CAST(? AS DATE)
                                                     AND fecha_hasta >= CAST(? AS DATE)
                                                 ";
 
                                                 $stmtCheck = db_query($conn, $sqlCheck, [
                                                     $tipo,
+                                                    $id,
                                                     $hasta,
                                                     $desde,
                                                 ], 'CHECK overlap toggle');
@@ -448,6 +450,7 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
                     </div>
                         <div class="card-body">
                             <form method="POST">
+                                <?= csrf_field() ?>
                                                                <!--  2 campos -->
                                             <div class="row g-3">
                                                 <div class="form-group col-12 col-md-6">
@@ -608,6 +611,7 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
                                                 <!-- TARIFA ACTIVA -->
                                                 <td class="text-center">
                                                         <form method="POST" action="tipo_tarifa.php">
+                                                            <?= csrf_field() ?>
                                                             <input type="hidden" name="id_tipo" value="<?= (int)$row['id_tipo_Tarifa']; ?>">
                                                             <input type="hidden" name="toggle_activa" value="1">
                                                             <input type="hidden" name="nuevo_estado" value="<?= ((int)($row['tarifa_activa'] ?? 0) === 1) ? 1 : 0 ?>">
@@ -620,6 +624,7 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
                                                 <!-- CALCULO POR KILO -->
                                                 <td class="text-center">
                                                         <form method="POST" action="tipo_tarifa.php">
+                                                            <?= csrf_field() ?>
                                                             <input type="hidden" name="id_tipo" value="<?= (int)$row['id_tipo_Tarifa'] ?>">
                                                             <input type="hidden" name="toggle_kilo" value="1">
                                                             <input type="hidden" name="nuevo_estado" value="0">
@@ -632,6 +637,7 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
                                                 <!-- CALCULO POR CAJA -->
                                                 <td class="text-center">
                                                         <form method="POST">
+                                                            <?= csrf_field() ?>
                                                             <input type="hidden" name="id_tipo" value="<?= (int)$row['id_tipo_Tarifa'] ?>">
                                                             <input type="hidden" name="toggle_caja" value="1">
                                                             <input type="hidden" name="nuevo_estado" value="0">
@@ -647,12 +653,14 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
                                                 <!-- Acciones (form separado) -->
                                                 <td class="text-nowrap">
                                                 <form method="POST" id="form_edit_<?= $id ?>">
+                                                    <?= csrf_field() ?>
                                                     <input type="hidden" name="id_tipo" value="<?= $id ?>">
                                                     <input type="hidden" name="editar" value="1">
                                                     <button class="btn btn-warning btn-sm" type="submit">Editar</button>
                                                 </form>
 
                                                 <form method="POST" style="display:inline;">
+                                                    <?= csrf_field() ?>
                                                     <input type="hidden" name="id_tipo" value="<?= (int)$row['id_tipo_Tarifa']; ?>">
                                                     <button class="btn btn-danger btn-sm" type="submit" name="eliminar"
                                                             onclick="return confirm('¿Eliminar este registro?')">Eliminar</button>

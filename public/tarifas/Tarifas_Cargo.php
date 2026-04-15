@@ -8,7 +8,7 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
 $username = $_SESSION['nom_usu'];
 
 if (!$conn) {
-    die(print_r(sqlsrv_errors(), true));
+    $flash_error = "Error de conexión a la base de datos. Contacte al administrador.";
 }
 
 // Consultas para llenar los combobox
@@ -257,6 +257,7 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
                                 Columnas requeridas: <code>Labor</code>, <code>Tipo Tarifa</code>. Opcionales: <code>Especie</code> (vacía = todas), <code>Contratista</code> (vacío = todos).
                             </p>
                             <form method="POST" enctype="multipart/form-data" class="d-flex gap-2 align-items-end">
+                                <?= csrf_field() ?>
                                 <div>
                                     <label class="form-label mb-1">Archivo Excel</label>
                                     <input type="file" name="archivo_excel" class="form-control" accept=".xlsx,.xls" required>
@@ -300,8 +301,8 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
                 </div>
                         <div class="card-body">
                             <form method="POST">
+                                <?= csrf_field() ?>
 
-                    
                                         <div class="row g-3">
                                              <div class="form-group col-12 col-md-4">
                                                      <label for="tipo_tarifa">Tipo Tarifa:</label>
@@ -381,7 +382,7 @@ JOIN dbo.Dota_Tipo_Tarifa T ON T.id_tipo_tarifa = D.id_tipo_tarifa
 JOIN dbo.dota_tipo_mo M ON M.id_mo = C.id_mo
 LEFT JOIN dbo.dota_contratista CON ON CON.id = D.id_contratista $filtro_busqueda");
 if ($query_total_registros === false) {
-    die(print_r(sqlsrv_errors(), true)); // Muestra los errores detallados de SQL Server
+    $flash_error = "Error al consultar registros. Intente nuevamente.";
 }
 $total_registros = sqlsrv_fetch_array($query_total_registros, SQLSRV_FETCH_ASSOC)['total'];
 $total_paginas = ceil($total_registros / $registros_por_pagina);
@@ -409,7 +410,7 @@ LEFT JOIN dbo.especie E on D.id_especie = E.id_especie
 LEFT JOIN dbo.dota_contratista CON ON CON.id = D.id_contratista
 $filtro_busqueda ORDER BY D.id OFFSET $offset ROWS FETCH NEXT $registros_por_pagina ROWS ONLY");
 if ($query === false) {
-    die(print_r(sqlsrv_errors(), true)); // Muestra los errores si la consulta falla
+    $flash_error = "Error al obtener los registros. Intente nuevamente.";
 }
 
 ?>
@@ -443,6 +444,7 @@ if ($query === false) {
             <?php while ($row = sqlsrv_fetch_array($query, SQLSRV_FETCH_ASSOC)) { ?>
                 <tr>
                     <form method="POST">
+                        <?= csrf_field() ?>
                         <td><?php echo $row['id']; ?></td>
                         <td>
                             <select name="cargo" class="form-control" onmouseover="this.title=this.options[this.selectedIndex].text">

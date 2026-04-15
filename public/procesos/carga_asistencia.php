@@ -557,6 +557,7 @@ async function startRead() {
 
       <!-- Reset -->
       <form method="POST" class="mb-3">
+        <?= csrf_field() ?>
         <button class="btn btn-outline-secondary" type="submit" name="reset_sesion">Reset</button>
       </form>
 
@@ -634,6 +635,7 @@ async function startRead() {
       ?>
 
       <form id="formPaso2" method="POST" action="carga_asistencia_paso2.php">
+        <?= csrf_field() ?>
         <input type="hidden" name="filtro_tipo"  value="<?= htmlspecialchars($data['filtro_tipo']  ?? 'todo') ?>">
         <input type="hidden" name="filtro_valor" value="<?= htmlspecialchars($data['filtro_valor'] ?? '') ?>">
         <input type="hidden" name="filtro_anio"  value="<?= (int)($data['filtro_anio'] ?? 0) ?>">

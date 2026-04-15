@@ -165,6 +165,7 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
           <!-- Cambiar estado -->
           <?php if ($pf['estado'] !== 'cerrado'): ?>
           <form method="POST" class="d-inline">
+            <?= csrf_field() ?>
             <input type="hidden" name="id_factura" value="<?= $id ?>">
             <input type="hidden" name="nuevo_estado" value="cerrado">
             <button type="submit" name="cambiar_estado"
@@ -175,6 +176,7 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
           </form>
           <?php else: ?>
           <form method="POST" class="d-inline">
+            <?= csrf_field() ?>
             <input type="hidden" name="id_factura" value="<?= $id ?>">
             <input type="hidden" name="nuevo_estado" value="proceso">
             <button type="submit" name="cambiar_estado" class="btn btn-sm btn-outline-warning">

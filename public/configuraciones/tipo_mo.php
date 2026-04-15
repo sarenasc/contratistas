@@ -7,7 +7,7 @@ $flash_error = null;
 $flash_ok    = null;
 
 if (!$conn) {
-    die(print_r(sqlsrv_errors(), true));
+    $flash_error = "Error de conexión a la base de datos. Contacte al administrador.";
 }
 
 // Agregar un nuevo registro
@@ -72,6 +72,7 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
         </div>
         <div class="card-body">
             <form method="POST">
+                <?= csrf_field() ?>
                 <div class="row g-3">
                     <div class="form-group col-12 col-md-6">
                     <label>Nombre Mano de Obra</label>
@@ -139,6 +140,7 @@ $query = sqlsrv_query($conn, "SELECT * FROM dota_tipo_mo $filtro_busqueda ORDER 
             <?php while ($row = sqlsrv_fetch_array($query, SQLSRV_FETCH_ASSOC)) { ?>
                 <tr>
                     <form method="POST">
+                        <?= csrf_field() ?>
                         <td><?php echo $row['id_mo']; ?></td>
                         <td><input type="text" name="nom_mo" class="form-control" value="<?php echo htmlspecialchars($row['nombre_mo']); ?>"></td> 
                         <td><input type="text" name="abrev" class="form-control" value="<?php echo htmlspecialchars($row['abrev']); ?>"></td>

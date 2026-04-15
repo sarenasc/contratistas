@@ -112,6 +112,7 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
     <div class="card-header">Nueva Solicitud</div>
     <div class="card-body">
         <form method="POST">
+            <?= csrf_field() ?>
             <div class="row g-3">
                 <div class="col-md-4">
                     <label class="form-label">Contratista</label>
@@ -165,6 +166,7 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
 
 <!-- Form oculto editar / eliminar -->
 <form id="form-accion" method="POST">
+    <?= csrf_field() ?>
     <input type="hidden" name="id"           id="f-id">
     <input type="hidden" name="contratista"  id="f-contratista">
     <input type="hidden" name="cargo"        id="f-cargo">
