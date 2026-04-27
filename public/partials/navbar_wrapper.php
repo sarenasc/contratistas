@@ -3,12 +3,13 @@
 $display_name = nombre_usuario();
 ?>
 
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+<nav class="navbar navbar-expand-lg navbar-dark app-navbar">
   <div class="container-fluid px-3">
     <a class="navbar-brand" href="<?= BASE_URL ?>/Inicio.php">
-      Sistema Contratista Condor de Apalta (Ex Almahue)
+      <span class="brand-title">Sistema Contratista</span>
+      <span class="brand-subtitle">Condor de Apalta</span>
       <?php if ($display_name): ?>
-        <small class="d-block text-muted" style="font-size:.75rem;">
+        <small class="d-block app-user-name">
           <?= htmlspecialchars($display_name) ?>
         </small>
       <?php endif; ?>

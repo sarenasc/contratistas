@@ -189,6 +189,7 @@ if ($rows === false) {
                 'total_marcas' => 0,
                 'entrada'      => null,
                 'salida'       => null,
+                'ultima_marca'  => null,
             ];
         }
 
@@ -198,25 +199,19 @@ if ($rows === false) {
         }
 
         $groupedRows[$groupKey]['total_marcas']++;
-
-        $entryDt = null;
-        $exitDt  = null;
-        if ($groupedRows[$groupKey]['hora_entrada'] !== '') {
-            $entryDt = new DateTime($groupedRows[$groupKey]['fecha_key'] . ' ' . $groupedRows[$groupKey]['hora_entrada'] . ':00');
-        }
-        if ($groupedRows[$groupKey]['hora_salida'] !== '') {
-            $exitDt = new DateTime($groupedRows[$groupKey]['fecha_key'] . ' ' . $groupedRows[$groupKey]['hora_salida'] . ':00');
-        }
-
-        $kind = classify_mark($markDt, $entryDt, $exitDt);
-        if ($kind === 'entrada' && $groupedRows[$groupKey]['entrada'] === null) {
+        if ($groupedRows[$groupKey]['entrada'] === null) {
             $groupedRows[$groupKey]['entrada'] = clone $markDt;
         }
-        if ($kind === 'salida' && $groupedRows[$groupKey]['salida'] === null) {
-            $groupedRows[$groupKey]['salida'] = clone $markDt;
-        }
+        $groupedRows[$groupKey]['ultima_marca'] = clone $markDt;
     }
 }
+
+foreach ($groupedRows as &$row) {
+    if ((int)$row['total_marcas'] > 1 && $row['ultima_marca'] instanceof DateTime) {
+        $row['salida'] = clone $row['ultima_marca'];
+    }
+}
+unset($row);
 
 $mergedRows = [];
 foreach ($groupedRows as $row) {
@@ -233,8 +228,14 @@ foreach ($groupedRows as $row) {
     if ($current['entrada'] === null || ($row['entrada'] instanceof DateTime && $row['entrada'] < $current['entrada'])) {
         $current['entrada'] = $row['entrada'];
     }
-    if ($current['salida'] === null || ($row['salida'] instanceof DateTime && $row['salida'] < $current['salida'])) {
+    if ($current['salida'] === null || ($row['salida'] instanceof DateTime && $row['salida'] > $current['salida'])) {
         $current['salida'] = $row['salida'];
+    }
+    if (
+        !isset($current['ultima_marca'])
+        || ($row['ultima_marca'] instanceof DateTime && $row['ultima_marca'] > $current['ultima_marca'])
+    ) {
+        $current['ultima_marca'] = $row['ultima_marca'];
     }
 
     if ($current['nombre_turno'] === '' && $row['nombre_turno'] !== '') {
@@ -253,6 +254,10 @@ foreach ($groupedRows as $row) {
 }
 
 foreach ($mergedRows as &$row) {
+    if ((int)$row['total_marcas'] > 1 && isset($row['ultima_marca']) && $row['ultima_marca'] instanceof DateTime) {
+        $row['salida'] = clone $row['ultima_marca'];
+    }
+    unset($row['ultima_marca']);
     $row['dispositivo'] = implode(', ', array_keys($row['dispositivos']));
     unset($row['dispositivos']);
 }
@@ -295,7 +300,7 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
   <div class="d-flex justify-content-between align-items-center mb-3">
     <div>
       <h4 class="mb-0">Marcaciones Validadas por Turno</h4>
-      <small class="text-muted">Se toma siempre la primera marca que corresponda a entrada y la primera que corresponda a salida.</small>
+      <small class="text-muted">Se toma la primera marca del día como entrada y la última como salida.</small>
     </div>
     <button class="btn btn-success btn-sm" onclick="abrirSync()">&#8635; Sincronizar relojes</button>
   </div>
@@ -344,7 +349,7 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
   </form>
 
   <div class="alert alert-info py-2">
-    La pantalla ignora el `tipo` del reloj. Si hay varias marcas, se muestra siempre la primera marca clasificada como entrada y la primera clasificada como salida.
+    La pantalla ignora el `tipo` del reloj. Con una sola marca queda como entrada pendiente; con dos o más, la primera marca es entrada y la última es salida.
   </div>
 
   <div class="table-responsive">

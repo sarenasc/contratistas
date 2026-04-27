@@ -1,0 +1,1293 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reloj Control — Marcaciones</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Reset ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 15px; -webkit-font-smoothing: antialiased; }
+    body { font-family: 'Inter', sans-serif; background: #f0f4f8; color: #1e293b; min-height: 100vh; }
+
+    /* ══════════════════════════════════════
+       NAVBAR
+    ══════════════════════════════════════ */
+    .navbar {
+      background: #13151f;
+      display: flex;
+      align-items: stretch;
+      padding: 0 1rem;
+      height: 48px;
+      position: relative;
+      z-index: 1000;
+      animation: navSlide .4s ease both;
+    }
+
+    @keyframes navSlide {
+      from { opacity: 0; transform: translateY(-10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .navbar-left {
+      display: flex;
+      align-items: stretch;
+      flex: 1;
+    }
+
+    .navbar-right {
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+    }
+
+    /* Menú item padre */
+    .nav-menu {
+      position: relative;
+    }
+
+    .nav-menu > .nav-trigger {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      height: 100%;
+      padding: 0 .85rem;
+      color: #5ecfca;
+      font-size: .8125rem;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+      user-select: none;
+      border-bottom: 2px solid transparent;
+      transition: color .15s, border-color .15s, background .15s;
+    }
+
+    .nav-menu > .nav-trigger:hover,
+    .nav-menu.open > .nav-trigger {
+      color: #9ef5f0;
+      background: rgba(255,255,255,.04);
+      border-bottom-color: #5ecfca;
+    }
+
+    .nav-trigger svg { opacity: .7; transition: transform .2s; flex-shrink: 0; }
+    .nav-menu.open .nav-trigger svg { transform: rotate(180deg); }
+
+    /* Dropdown */
+    .nav-dropdown {
+      display: none;
+      position: absolute;
+      top: calc(100% + 1px);
+      left: 0;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.14), 0 2px 6px rgba(0,0,0,.08);
+      min-width: 190px;
+      overflow: hidden;
+      animation: dropIn .18s cubic-bezier(.22,1,.36,1) both;
+    }
+
+    @keyframes dropIn {
+      from { opacity: 0; transform: translateY(-6px) scale(.98); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .nav-menu.open .nav-dropdown { display: block; }
+
+    .nav-dropdown a {
+      display: block;
+      padding: .55rem 1rem;
+      font-size: .8125rem;
+      color: #1e7fc4;
+      text-decoration: none;
+      transition: background .12s;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .nav-dropdown a:last-child { border-bottom: none; }
+    .nav-dropdown a:hover { background: #f0f9ff; color: #0e5a9c; }
+
+    /* Ítem activo (pantalla actual) */
+    .nav-dropdown a.active {
+      background: #eff8ff;
+      color: #0e5a9c;
+      font-weight: 600;
+    }
+
+    /* "Cerrar sesión" */
+    .nav-cerrar {
+      display: flex;
+      align-items: center;
+      padding: 0 .85rem;
+      color: #ef4444;
+      font-size: .8125rem;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+      transition: color .15s;
+    }
+    .nav-cerrar:hover { color: #fca5a5; }
+
+    /* Botón Sincronizar */
+    .btn-sync {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: #16a34a;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      padding: .4rem .9rem;
+      font-size: .8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .15s, transform .1s;
+      white-space: nowrap;
+    }
+    .btn-sync:hover { background: #15803d; }
+    .btn-sync:active { transform: scale(.97); }
+    .btn-sync svg { animation: spinOnce 0s; }
+    .btn-sync:active svg { animation: spinOnce .5s linear; }
+    @keyframes spinOnce { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+    /* ══════════════════════════════════════
+       BANDA AZUL bajo el navbar
+    ══════════════════════════════════════ */
+    .sub-band {
+      background: #b2e4e8;
+      height: 6px;
+    }
+
+    /* ══════════════════════════════════════
+       CONTENIDO PRINCIPAL
+    ══════════════════════════════════════ */
+    .main-wrap {
+      padding: 1.5rem 2rem;
+      animation: fadeUp .45s cubic-bezier(.22,1,.36,1) .1s both;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(14px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Cabecera de página */
+    .page-header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      margin-bottom: 1.25rem;
+      flex-wrap: wrap;
+      gap: .75rem;
+    }
+
+    .page-title {
+      font-size: 1.35rem;
+      font-weight: 800;
+      color: #0f172a;
+      letter-spacing: -.02em;
+    }
+
+    .page-title span {
+      font-size: .8rem;
+      font-weight: 500;
+      color: #64748b;
+      margin-left: .5rem;
+      letter-spacing: 0;
+    }
+
+    .page-actions { display: flex; gap: .5rem; align-items: center; }
+
+    /* ── Botones ── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: .42rem .9rem;
+      border-radius: 5px;
+      font-size: .8125rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all .15s;
+      white-space: nowrap;
+    }
+    .btn-primary  { background: #1d6fb8; color: #fff; }
+    .btn-primary:hover  { background: #155fa0; }
+    .btn-success  { background: #16a34a; color: #fff; }
+    .btn-success:hover  { background: #15803d; }
+    .btn-outline  { background: #fff; color: #475569; border: 1px solid #cbd5e1; }
+    .btn-outline:hover  { background: #f8fafc; color: #1e293b; }
+    .btn-danger   { background: #dc2626; color: #fff; }
+    .btn-danger:hover   { background: #b91c1c; }
+    .btn-sm { padding: .3rem .7rem; font-size: .75rem; }
+
+    /* ── Filtros ── */
+    .filter-bar {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1.25rem;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+      gap: .75rem;
+      align-items: end;
+      box-shadow: 0 1px 3px rgba(0,0,0,.05);
+      animation: fadeUp .45s cubic-bezier(.22,1,.36,1) .2s both;
+    }
+
+    .filter-group { display: flex; flex-direction: column; gap: .3rem; }
+
+    .filter-group label {
+      font-size: .7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: #64748b;
+    }
+
+    .filter-group select,
+    .filter-group input {
+      padding: .4rem .6rem;
+      border: 1px solid #cbd5e1;
+      border-radius: 5px;
+      font-size: .8125rem;
+      color: #1e293b;
+      background: #f8fafc;
+      outline: none;
+      transition: border-color .15s, box-shadow .15s;
+      font-family: inherit;
+    }
+
+    .filter-group select:focus,
+    .filter-group input:focus {
+      border-color: #5ecfca;
+      box-shadow: 0 0 0 3px rgba(94,207,202,.15);
+    }
+
+    .filter-actions { display: flex; gap: .5rem; align-items: flex-end; }
+
+    /* ── Estadísticas rápidas ── */
+    .stats-row {
+      display: flex;
+      gap: .75rem;
+      margin-bottom: 1.25rem;
+      flex-wrap: wrap;
+      animation: fadeUp .45s cubic-bezier(.22,1,.36,1) .25s both;
+    }
+
+    .stat-chip {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 7px;
+      padding: .6rem 1rem;
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+      box-shadow: 0 1px 2px rgba(0,0,0,.04);
+    }
+
+    .stat-chip-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .stat-chip-label { font-size: .75rem; color: #64748b; }
+    .stat-chip-value { font-size: .95rem; font-weight: 700; color: #0f172a; margin-left: 2px; }
+
+    /* ── Tabla ── */
+    .table-card {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,.06);
+      animation: fadeUp .50s cubic-bezier(.22,1,.36,1) .32s both;
+    }
+
+    .table-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: .85rem 1.25rem;
+      border-bottom: 1px solid #e2e8f0;
+      gap: .75rem;
+      flex-wrap: wrap;
+    }
+
+    .table-toolbar-title {
+      font-size: .875rem;
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    .table-toolbar-sub {
+      font-size: .75rem;
+      color: #64748b;
+      margin-left: .35rem;
+    }
+
+    .table-search {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 5px;
+      padding: .35rem .7rem;
+    }
+
+    .table-search input {
+      border: none;
+      background: transparent;
+      font-size: .8125rem;
+      color: #1e293b;
+      outline: none;
+      width: 200px;
+      font-family: inherit;
+    }
+
+    .table-search input::placeholder { color: #94a3b8; }
+
+    table { width: 100%; border-collapse: collapse; }
+
+    thead tr { background: #f1f5f9; }
+
+    thead th {
+      padding: .65rem .9rem;
+      text-align: left;
+      font-size: .7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: #475569;
+      white-space: nowrap;
+      cursor: pointer;
+      user-select: none;
+      border-bottom: 2px solid #e2e8f0;
+      transition: color .12s;
+    }
+
+    thead th:hover { color: #0f172a; }
+    thead th.sorted { color: #1d6fb8; }
+    thead th .sort-icon { margin-left: 4px; opacity: .5; }
+    thead th.sorted .sort-icon { opacity: 1; }
+    thead th.right, tbody td.right { text-align: right; }
+    thead th.center, tbody td.center { text-align: center; }
+
+    tbody tr {
+      border-bottom: 1px solid #f1f5f9;
+      transition: background .12s;
+      animation: rowIn .35s cubic-bezier(.22,1,.36,1) both;
+      opacity: 0;
+    }
+
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: #f8fafc; }
+
+    /* Stagger rows */
+    tbody tr:nth-child(1)  { animation-delay: .40s; }
+    tbody tr:nth-child(2)  { animation-delay: .46s; }
+    tbody tr:nth-child(3)  { animation-delay: .52s; }
+    tbody tr:nth-child(4)  { animation-delay: .58s; }
+    tbody tr:nth-child(5)  { animation-delay: .64s; }
+    tbody tr:nth-child(6)  { animation-delay: .70s; }
+    tbody tr:nth-child(7)  { animation-delay: .76s; }
+    tbody tr:nth-child(8)  { animation-delay: .82s; }
+    tbody tr:nth-child(9)  { animation-delay: .88s; }
+    tbody tr:nth-child(10) { animation-delay: .94s; }
+    tbody tr:nth-child(11) { animation-delay: 1.00s; }
+    tbody tr:nth-child(12) { animation-delay: 1.06s; }
+
+    @keyframes rowIn {
+      from { opacity: 0; transform: translateX(-6px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
+    tbody td {
+      padding: .7rem .9rem;
+      font-size: .8125rem;
+      color: #334155;
+      vertical-align: middle;
+    }
+
+    /* Celda trabajador */
+    .worker-cell { display: flex; align-items: center; gap: .65rem; }
+
+    .worker-avatar {
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      background: #dbeafe;
+      color: #1d4ed8;
+      font-size: .7rem;
+      font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .worker-name { font-weight: 600; color: #0f172a; font-size: .8125rem; }
+    .worker-id   { font-size: .7rem; color: #64748b; font-family: 'JetBrains Mono', monospace; }
+
+    /* Hora */
+    .time-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .8rem;
+      font-weight: 500;
+      color: #0f172a;
+    }
+
+    .time-val.missing {
+      color: #94a3b8;
+      font-style: italic;
+    }
+
+    /* Marcas count */
+    .marks-count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px; height: 26px;
+      border-radius: 50%;
+      background: #eff6ff;
+      color: #1d6fb8;
+      font-size: .75rem;
+      font-weight: 700;
+    }
+
+    .marks-count.warn { background: #fef3c7; color: #d97706; }
+    .marks-count.odd  { background: #fee2e2; color: #dc2626; }
+
+    /* Horas badge */
+    .hours-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .8rem;
+      font-weight: 600;
+      color: #0f172a;
+    }
+
+    .hours-badge.over  { color: #16a34a; }
+    .hours-badge.under { color: #dc2626; }
+
+    /* Reloj device */
+    .device-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: #f1f5f9;
+      border-radius: 4px;
+      padding: 2px 7px;
+      font-size: .7rem;
+      color: #475569;
+      font-weight: 500;
+    }
+
+    /* Estado badge */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 9px;
+      border-radius: 999px;
+      font-size: .7rem;
+      font-weight: 600;
+    }
+
+    .badge-dot { width: 6px; height: 6px; border-radius: 50%; }
+
+    .b-completa    { background: #dcfce7; color: #16a34a; }
+    .b-completa    .badge-dot { background: #16a34a; }
+    .b-incompleta  { background: #fef3c7; color: #d97706; }
+    .b-incompleta  .badge-dot { background: #d97706; animation: pulse 1.8s ease-in-out infinite; }
+    .b-ausente     { background: #fee2e2; color: #dc2626; }
+    .b-ausente     .badge-dot { background: #dc2626; }
+    .b-manual      { background: #ede9fe; color: #7c3aed; }
+    .b-manual      .badge-dot { background: #7c3aed; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: .5; transform: scale(1.4); }
+    }
+
+    /* Checkbox col */
+    tbody td.check-col { width: 36px; }
+    .cb {
+      width: 15px; height: 15px;
+      cursor: pointer;
+      accent-color: #1d6fb8;
+    }
+
+    /* Acciones */
+    .row-actions { display: flex; align-items: center; gap: .35rem; }
+
+    .icon-btn {
+      width: 28px; height: 28px;
+      border: none;
+      border-radius: 4px;
+      background: transparent;
+      cursor: pointer;
+      color: #64748b;
+      display: flex; align-items: center; justify-content: center;
+      transition: background .12s, color .12s;
+    }
+
+    .icon-btn:hover { background: #f1f5f9; color: #0f172a; }
+    .icon-btn.danger:hover { background: #fee2e2; color: #dc2626; }
+
+    /* Paginación */
+    .table-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: .75rem 1.25rem;
+      border-top: 1px solid #e2e8f0;
+      background: #f8fafc;
+      font-size: .8rem;
+      color: #64748b;
+      flex-wrap: wrap;
+      gap: .5rem;
+    }
+
+    .pagination { display: flex; gap: .35rem; }
+
+    .page-btn {
+      min-width: 30px; height: 30px;
+      border: 1px solid #e2e8f0;
+      border-radius: 5px;
+      background: #fff;
+      font-size: .8rem;
+      color: #475569;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      padding: 0 .4rem;
+      transition: all .12s;
+    }
+
+    .page-btn:hover { border-color: #5ecfca; color: #0f172a; }
+    .page-btn.active { background: #1d6fb8; color: #fff; border-color: #1d6fb8; font-weight: 700; }
+    .page-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+    /* ── Notificación de fila seleccionada ── */
+    .selection-bar {
+      display: none;
+      align-items: center;
+      gap: .75rem;
+      background: #1d6fb8;
+      color: #fff;
+      padding: .5rem 1.25rem;
+      font-size: .8125rem;
+      font-weight: 600;
+      animation: barIn .25s ease both;
+    }
+
+    @keyframes barIn {
+      from { opacity: 0; height: 0; padding: 0 1.25rem; }
+      to   { opacity: 1; }
+    }
+
+    .selection-bar.visible { display: flex; }
+
+    .selection-bar button {
+      border: 1px solid rgba(255,255,255,.4);
+      background: transparent;
+      color: #fff;
+      border-radius: 4px;
+      padding: .25rem .7rem;
+      font-size: .75rem;
+      cursor: pointer;
+      font-weight: 600;
+      transition: background .12s;
+    }
+
+    .selection-bar button:hover { background: rgba(255,255,255,.15); }
+
+    /* Modal de detalle marca */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(15,23,42,.45);
+      z-index: 2000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      animation: fadeIn .2s ease both;
+    }
+
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 24px 64px rgba(0,0,0,.2);
+      width: 520px;
+      max-width: 95vw;
+      overflow: hidden;
+      animation: modalIn .25s cubic-bezier(.22,1,.36,1) both;
+    }
+
+    @keyframes modalIn {
+      from { opacity: 0; transform: scale(.94) translateY(10px); }
+      to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid #e2e8f0;
+      background: #f8fafc;
+    }
+
+    .modal-title { font-size: .9375rem; font-weight: 700; color: #0f172a; }
+
+    .modal-close {
+      width: 30px; height: 30px;
+      border: none; background: transparent; cursor: pointer;
+      border-radius: 5px; display: flex; align-items: center; justify-content: center;
+      color: #64748b; font-size: 1.1rem; transition: background .12s;
+    }
+
+    .modal-close:hover { background: #f1f5f9; }
+
+    .modal-body { padding: 1.25rem; }
+
+    .mark-timeline {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .mark-event {
+      display: flex;
+      align-items: flex-start;
+      gap: .75rem;
+      padding: .6rem 0;
+      position: relative;
+    }
+
+    .mark-event::before {
+      content: '';
+      position: absolute;
+      left: 16px;
+      top: 32px;
+      bottom: -4px;
+      width: 2px;
+      background: #e2e8f0;
+    }
+
+    .mark-event:last-child::before { display: none; }
+
+    .mark-dot {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      font-size: .75rem;
+      font-weight: 700;
+      z-index: 1;
+    }
+
+    .mark-dot.entrada { background: #dcfce7; color: #16a34a; }
+    .mark-dot.salida  { background: #fee2e2; color: #dc2626; }
+    .mark-dot.manual  { background: #ede9fe; color: #7c3aed; }
+
+    .mark-info-time {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 600;
+      color: #0f172a;
+      font-size: .875rem;
+    }
+
+    .mark-info-meta { font-size: .75rem; color: #64748b; margin-top: 1px; }
+
+    .modal-footer {
+      padding: .875rem 1.25rem;
+      border-top: 1px solid #e2e8f0;
+      display: flex;
+      justify-content: flex-end;
+      gap: .5rem;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════ NAVBAR ══════════════ -->
+<nav class="navbar" id="navbar">
+  <div class="navbar-left">
+
+    <!-- Aprobación -->
+    <div class="nav-menu" data-menu="aprobacion">
+      <div class="nav-trigger">
+        Aprobación
+        <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+      </div>
+      <div class="nav-dropdown">
+        <a href="#">Bandeja Jefe Área</a>
+        <a href="#">Bandeja Operaciones</a>
+        <a href="#">Detalle Asistencia</a>
+        <a href="#">Bandeja RRHH</a>
+        <a href="#">Gestionar Lotes</a>
+      </div>
+    </div>
+
+    <!-- Procesos -->
+    <div class="nav-menu" data-menu="procesos">
+      <div class="nav-trigger">
+        Procesos
+        <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+      </div>
+      <div class="nav-dropdown">
+        <a href="#">Carga Asistencia</a>
+        <a href="#">Editar Asistencia</a>
+        <a href="#">Descuento</a>
+        <a href="#">Jornadas Pendientes</a>
+        <a href="#">Pre Factura</a>
+        <a href="#">Carga Cajas</a>
+        <a href="#">Proformas</a>
+      </div>
+    </div>
+
+    <!-- Reloj -->
+    <div class="nav-menu" data-menu="reloj">
+      <div class="nav-trigger">
+        Reloj
+        <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+      </div>
+      <div class="nav-dropdown">
+        <a href="#">Dashboard</a>
+        <a href="#" class="active">Marcaciones</a>
+        <a href="#">Trabajadores</a>
+        <a href="#">Dispositivos</a>
+      </div>
+    </div>
+
+    <!-- Contratistas -->
+    <div class="nav-menu" data-menu="contratistas">
+      <div class="nav-trigger">
+        Contratistas
+        <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+      </div>
+      <div class="nav-dropdown">
+        <a href="#">Contratista</a>
+        <a href="#">Solicitud Contratista</a>
+      </div>
+    </div>
+
+    <!-- Tarifas -->
+    <div class="nav-menu" data-menu="tarifas">
+      <div class="nav-trigger">
+        Tarifas
+        <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+      </div>
+      <div class="nav-dropdown">
+        <a href="#">Cargos y Tarifas</a>
+        <a href="#">Tipo Tarifas</a>
+        <a href="#">Tarifas Especiales</a>
+      </div>
+    </div>
+
+    <!-- Administración -->
+    <div class="nav-menu" data-menu="admin">
+      <div class="nav-trigger">
+        Administración
+        <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+      </div>
+      <div class="nav-dropdown">
+        <a href="#">Eliminar Documentos</a>
+      </div>
+    </div>
+
+    <!-- Configuraciones -->
+    <div class="nav-menu" data-menu="config">
+      <div class="nav-trigger">
+        Configuraciones
+        <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+      </div>
+      <div class="nav-dropdown">
+        <a href="#">Tipo de mano de obra</a>
+        <a href="#">Labores</a>
+        <a href="#">Area</a>
+        <a href="#">Turnos</a>
+        <a href="#">Jefes de Área</a>
+        <a href="#">Usuarios</a>
+      </div>
+    </div>
+
+    <a class="nav-cerrar" href="#">Cerrar sesión</a>
+  </div>
+
+  <div class="navbar-right">
+    <button class="btn-sync" id="btnSync">
+      <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" id="syncIcon">
+        <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/>
+      </svg>
+      Sincronizar relojes
+    </button>
+  </div>
+</nav>
+
+<div class="sub-band"></div>
+
+<!-- ══════════════ MAIN ══════════════ -->
+<div class="main-wrap">
+
+  <!-- Cabecera -->
+  <div class="page-header">
+    <div>
+      <div class="page-title">
+        Marcaciones
+        <span>Reloj → Marcaciones</span>
+      </div>
+    </div>
+    <div class="page-actions">
+      <button class="btn btn-outline btn-sm">
+        <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+        Exportar Excel
+      </button>
+      <button class="btn btn-outline btn-sm">
+        <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v2a2 2 0 002 2h6a2 2 0 002-2v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clip-rule="evenodd"/></svg>
+        Imprimir
+      </button>
+      <button class="btn btn-primary btn-sm" onclick="openModal('nueva')">
+        <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/></svg>
+        Agregar Marca Manual
+      </button>
+    </div>
+  </div>
+
+  <!-- Filtros -->
+  <div class="filter-bar">
+    <div class="filter-group">
+      <label>Fecha Inicio</label>
+      <input type="date" value="2026-04-21" />
+    </div>
+    <div class="filter-group">
+      <label>Fecha Fin</label>
+      <input type="date" value="2026-04-27" />
+    </div>
+    <div class="filter-group">
+      <label>Contratista / Empresa</label>
+      <select>
+        <option>Todos</option>
+        <option>TechCorp México S.A.</option>
+        <option>Constructora ABC</option>
+        <option>Servicios Globales</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Área</label>
+      <select>
+        <option>Todas las áreas</option>
+        <option>Tecnología</option>
+        <option>Operaciones</option>
+        <option>Administrativo</option>
+        <option>Producción</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Reloj / Dispositivo</label>
+      <select>
+        <option>Todos los relojes</option>
+        <option>Reloj Principal — Entrada</option>
+        <option>Reloj Planta Baja</option>
+        <option>Reloj Piso 2</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Estado</label>
+      <select>
+        <option>Todos</option>
+        <option>Completa</option>
+        <option>Incompleta</option>
+        <option>Ausente</option>
+        <option>Manual</option>
+      </select>
+    </div>
+    <div class="filter-actions">
+      <button class="btn btn-primary btn-sm">
+        <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg>
+        Buscar
+      </button>
+      <button class="btn btn-outline btn-sm">Limpiar</button>
+    </div>
+  </div>
+
+  <!-- Stats rápidas -->
+  <div class="stats-row">
+    <div class="stat-chip">
+      <div class="stat-chip-dot" style="background:#1d6fb8;"></div>
+      <span class="stat-chip-label">Total registros</span>
+      <span class="stat-chip-value">247</span>
+    </div>
+    <div class="stat-chip">
+      <div class="stat-chip-dot" style="background:#16a34a;"></div>
+      <span class="stat-chip-label">Completas</span>
+      <span class="stat-chip-value">198</span>
+    </div>
+    <div class="stat-chip">
+      <div class="stat-chip-dot" style="background:#d97706;"></div>
+      <span class="stat-chip-label">Incompletas</span>
+      <span class="stat-chip-value">31</span>
+    </div>
+    <div class="stat-chip">
+      <div class="stat-chip-dot" style="background:#dc2626;"></div>
+      <span class="stat-chip-label">Ausentes</span>
+      <span class="stat-chip-value">12</span>
+    </div>
+    <div class="stat-chip">
+      <div class="stat-chip-dot" style="background:#7c3aed;"></div>
+      <span class="stat-chip-label">Manuales</span>
+      <span class="stat-chip-value">6</span>
+    </div>
+    <div class="stat-chip" style="margin-left:auto;">
+      <div class="stat-chip-dot" style="background:#0f172a;"></div>
+      <span class="stat-chip-label">Total horas semana</span>
+      <span class="stat-chip-value">1,842 hrs</span>
+    </div>
+  </div>
+
+  <!-- Barra de selección -->
+  <div class="selection-bar" id="selBar">
+    <span id="selCount">0 registros seleccionados</span>
+    <button onclick="aprobarSel()">✓ Aprobar selección</button>
+    <button onclick="clearSel()">Deseleccionar</button>
+  </div>
+
+  <!-- Tabla -->
+  <div class="table-card">
+    <div class="table-toolbar">
+      <div>
+        <span class="table-toolbar-title">Registros de Marcación</span>
+        <span class="table-toolbar-sub">Semana 17 · 21–27 Abr 2026</span>
+      </div>
+      <div style="display:flex; gap:.5rem; align-items:center;">
+        <div class="table-search">
+          <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" style="color:#94a3b8; flex-shrink:0;"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg>
+          <input type="text" placeholder="Buscar trabajador, ID…" id="searchInput" oninput="filterTable()" />
+        </div>
+        <select class="btn btn-outline btn-sm" style="padding:.3rem .7rem; font-size:.75rem; font-weight:600;" onchange="filterByDate(this.value)">
+          <option value="">Todos los días</option>
+          <option value="lun">Lunes 21</option>
+          <option value="mar">Martes 22</option>
+          <option value="mie">Miércoles 23</option>
+          <option value="jue">Jueves 24</option>
+          <option value="vie">Viernes 25</option>
+        </select>
+      </div>
+    </div>
+
+    <table id="mainTable">
+      <thead>
+        <tr>
+          <th class="check-col"><input type="checkbox" class="cb" id="checkAll" onchange="toggleAll(this)" /></th>
+          <th class="sorted">Trabajador <span class="sort-icon">↑</span></th>
+          <th>Fecha</th>
+          <th>Entrada <span class="sort-icon">↕</span></th>
+          <th>Salida <span class="sort-icon">↕</span></th>
+          <th class="center">Marcas</th>
+          <th class="center">Horas</th>
+          <th>Reloj</th>
+          <th>Área</th>
+          <th class="center">Estado</th>
+          <th class="right">Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody">
+        <!-- Filas generadas por JS -->
+      </tbody>
+    </table>
+
+    <div class="table-footer">
+      <span id="footerInfo">Mostrando 1–12 de 247 registros</span>
+      <div class="pagination">
+        <button class="page-btn" disabled>‹</button>
+        <button class="page-btn active">1</button>
+        <button class="page-btn">2</button>
+        <button class="page-btn">3</button>
+        <span style="align-self:center; padding:0 .25rem; color:#94a3b8;">…</span>
+        <button class="page-btn">21</button>
+        <button class="page-btn">›</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════ MODAL DETALLE ══════════════ -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+  <div class="modal" id="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modalTitle">Detalle de Marcaciones</span>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody">
+      <!-- contenido dinámico -->
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="closeModal()">Cerrar</button>
+      <button class="btn btn-primary btn-sm">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  /* ══════════ Datos de ejemplo ══════════ */
+  const rows = [
+    { id:'W-001', nombre:'Alejandro Torres',  iniciales:'AT', fecha:'Lun 21 Abr', dia:'lun', entrada:'07:02', salida:'16:05', marcas:4, horas:9.05, reloj:'Reloj Principal', area:'Tecnología',    estado:'completa'   },
+    { id:'W-002', nombre:'Carmen López',       iniciales:'CL', fecha:'Lun 21 Abr', dia:'lun', entrada:'07:58', salida:'17:10', marcas:4, horas:9.12, reloj:'Reloj Piso 2',    area:'Operaciones',  estado:'completa'   },
+    { id:'W-003', nombre:'Roberto Hernández',  iniciales:'RH', fecha:'Lun 21 Abr', dia:'lun', entrada:'08:30', salida:'—',     marcas:1, horas:null, reloj:'Reloj Planta Baja', area:'Producción', estado:'incompleta' },
+    { id:'W-004', nombre:'Sofía Martínez',     iniciales:'SM', fecha:'Mar 22 Abr', dia:'mar', entrada:'07:00', salida:'16:00', marcas:4, horas:9.00, reloj:'Reloj Principal', area:'Administrativo',estado:'completa'  },
+    { id:'W-005', nombre:'Miguel Ángel Ruiz',  iniciales:'MR', fecha:'Mar 22 Abr', dia:'mar', entrada:'—',     salida:'—',     marcas:0, horas:null, reloj:'—',               area:'Tecnología',   estado:'ausente'    },
+    { id:'W-006', nombre:'Lucía Fernández',    iniciales:'LF', fecha:'Mar 22 Abr', dia:'mar', entrada:'09:15', salida:'18:22', marcas:6, horas:9.07, reloj:'Reloj Piso 2',    area:'Operaciones',  estado:'manual'     },
+    { id:'W-007', nombre:'Carlos Jiménez',     iniciales:'CJ', fecha:'Mié 23 Abr', dia:'mie', entrada:'07:45', salida:'17:00', marcas:4, horas:9.15, reloj:'Reloj Planta Baja','area':'Producción',estado:'completa'  },
+    { id:'W-008', nombre:'Ana García',         iniciales:'AG', fecha:'Mié 23 Abr', dia:'mie', entrada:'08:00', salida:'—',     marcas:3, horas:null, reloj:'Reloj Principal', area:'Administrativo',estado:'incompleta'},
+    { id:'W-009', nombre:'José Morales',       iniciales:'JM', fecha:'Jue 24 Abr', dia:'jue', entrada:'07:30', salida:'16:30', marcas:4, horas:9.00, reloj:'Reloj Piso 2',    area:'Tecnología',   estado:'completa'   },
+    { id:'W-010', nombre:'Patricia Díaz',      iniciales:'PD', fecha:'Jue 24 Abr', dia:'jue', entrada:'07:55', salida:'17:05', marcas:4, horas:9.10, reloj:'Reloj Principal', area:'Operaciones',  estado:'completa'   },
+    { id:'W-011', nombre:'Fernando Soto',      iniciales:'FS', fecha:'Vie 25 Abr', dia:'vie', entrada:'08:10', salida:'—',     marcas:2, horas:null, reloj:'Reloj Planta Baja','area':'Producción', estado:'incompleta'},
+    { id:'W-012', nombre:'Verónica Castro',    iniciales:'VC', fecha:'Vie 25 Abr', dia:'vie', entrada:'07:00', salida:'16:10', marcas:4, horas:9.10, reloj:'Reloj Piso 2',    area:'Administrativo',estado:'completa'  },
+  ];
+
+  const estadoMap = {
+    completa:   { label:'Completa',   cls:'b-completa'   },
+    incompleta: { label:'Incompleta', cls:'b-incompleta' },
+    ausente:    { label:'Ausente',    cls:'b-ausente'    },
+    manual:     { label:'Manual',     cls:'b-manual'     },
+  };
+
+  function renderRows(data) {
+    const tbody = document.getElementById('tableBody');
+    tbody.innerHTML = data.map((r, i) => {
+      const e = estadoMap[r.estado];
+      const marcasCls = r.marcas === 0 ? 'odd' : (r.marcas % 2 !== 0 ? 'odd' : (r.marcas > 4 ? 'warn' : ''));
+      const horasTxt = r.horas ? r.horas.toFixed(2) + ' h' : '—';
+      const horasCls = r.horas ? (r.horas >= 9 ? 'over' : 'under') : '';
+      return `
+        <tr data-id="${r.id}" data-dia="${r.dia}">
+          <td class="check-col"><input type="checkbox" class="cb row-cb" onchange="updateSel()" /></td>
+          <td>
+            <div class="worker-cell">
+              <div class="worker-avatar">${r.iniciales}</div>
+              <div>
+                <div class="worker-name">${r.nombre}</div>
+                <div class="worker-id">${r.id}</div>
+              </div>
+            </div>
+          </td>
+          <td style="color:#475569; font-size:.8rem;">${r.fecha}</td>
+          <td><span class="time-val ${r.entrada==='—'?'missing':''}">${r.entrada}</span></td>
+          <td><span class="time-val ${r.salida==='—'?'missing':''}">${r.salida}</span></td>
+          <td class="center"><span class="marks-count ${marcasCls}">${r.marcas}</span></td>
+          <td class="center"><span class="hours-badge ${horasCls}">${horasTxt}</span></td>
+          <td><span class="device-tag">
+            <svg width="10" height="10" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/></svg>
+            ${r.reloj}
+          </span></td>
+          <td style="font-size:.8rem; color:#475569;">${r.area}</td>
+          <td class="center">
+            <span class="badge ${e.cls}">
+              <span class="badge-dot"></span>
+              ${e.label}
+            </span>
+          </td>
+          <td class="right">
+            <div class="row-actions">
+              <button class="icon-btn" title="Ver detalle" onclick="openDetail('${r.id}')">
+                <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z"/><path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"/></svg>
+              </button>
+              <button class="icon-btn" title="Editar">
+                <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/></svg>
+              </button>
+              <button class="icon-btn danger" title="Eliminar">
+                <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+              </button>
+            </div>
+          </td>
+        </tr>`;
+    }).join('');
+  }
+
+  renderRows(rows);
+
+  /* ══════════ Filtro búsqueda ══════════ */
+  function filterTable() {
+    const q = document.getElementById('searchInput').value.toLowerCase();
+    const filtered = rows.filter(r => r.nombre.toLowerCase().includes(q) || r.id.toLowerCase().includes(q));
+    renderRows(filtered);
+  }
+
+  function filterByDate(dia) {
+    const filtered = dia ? rows.filter(r => r.dia === dia) : rows;
+    renderRows(filtered);
+  }
+
+  /* ══════════ Selección ══════════ */
+  function updateSel() {
+    const checked = document.querySelectorAll('.row-cb:checked').length;
+    const bar = document.getElementById('selBar');
+    document.getElementById('selCount').textContent = checked + ' registros seleccionados';
+    bar.classList.toggle('visible', checked > 0);
+  }
+
+  function toggleAll(cb) {
+    document.querySelectorAll('.row-cb').forEach(c => { c.checked = cb.checked; });
+    updateSel();
+  }
+
+  function clearSel() {
+    document.querySelectorAll('.row-cb, #checkAll').forEach(c => { c.checked = false; });
+    document.getElementById('selBar').classList.remove('visible');
+  }
+
+  function aprobarSel() {
+    const n = document.querySelectorAll('.row-cb:checked').length;
+    alert(n + ' registros aprobados correctamente.');
+    clearSel();
+  }
+
+  /* ══════════ Modal ══════════ */
+  function openDetail(id) {
+    const r = rows.find(x => x.id === id);
+    if (!r) return;
+    document.getElementById('modalTitle').textContent = 'Marcaciones — ' + r.nombre;
+    document.getElementById('modalBody').innerHTML = `
+      <div style="margin-bottom:1rem; display:flex; gap:.5rem; align-items:center;">
+        <div class="worker-avatar" style="width:40px;height:40px;font-size:.8rem;">${r.iniciales}</div>
+        <div>
+          <div style="font-weight:700; color:#0f172a;">${r.nombre}</div>
+          <div style="font-size:.75rem; color:#64748b;">${r.id} · ${r.area} · ${r.fecha}</div>
+        </div>
+        <span class="badge ${estadoMap[r.estado].cls}" style="margin-left:auto;">
+          <span class="badge-dot"></span>${estadoMap[r.estado].label}
+        </span>
+      </div>
+      <div class="mark-timeline">
+        ${r.entrada !== '—' ? `
+        <div class="mark-event">
+          <div class="mark-dot entrada">E</div>
+          <div>
+            <div class="mark-info-time">${r.entrada} — Entrada</div>
+            <div class="mark-info-meta">${r.reloj} · Verificación biométrica</div>
+          </div>
+        </div>` : ''}
+        ${r.marcas > 2 ? `
+        <div class="mark-event">
+          <div class="mark-dot salida">S</div>
+          <div>
+            <div class="mark-info-time">12:00 — Salida (almuerzo)</div>
+            <div class="mark-info-meta">${r.reloj} · Pausa programada</div>
+          </div>
+        </div>
+        <div class="mark-event">
+          <div class="mark-dot entrada">E</div>
+          <div>
+            <div class="mark-info-time">13:00 — Entrada (regreso)</div>
+            <div class="mark-info-meta">${r.reloj} · Verificación biométrica</div>
+          </div>
+        </div>` : ''}
+        ${r.salida !== '—' ? `
+        <div class="mark-event">
+          <div class="mark-dot salida">S</div>
+          <div>
+            <div class="mark-info-time">${r.salida} — Salida</div>
+            <div class="mark-info-meta">${r.reloj} · Verificación biométrica</div>
+          </div>
+        </div>` : `
+        <div class="mark-event">
+          <div class="mark-dot manual" style="background:#fee2e2;color:#dc2626;">!</div>
+          <div>
+            <div class="mark-info-time" style="color:#dc2626;">Salida no registrada</div>
+            <div class="mark-info-meta">Requiere corrección manual</div>
+          </div>
+        </div>`}
+      </div>
+      ${r.horas ? `<div style="margin-top:1rem; padding:.75rem 1rem; background:#f0fdf4; border-radius:6px; border:1px solid #bbf7d0; font-size:.8125rem; color:#16a34a; font-weight:600;">
+        Total jornada: ${r.horas.toFixed(2)} horas trabajadas
+      </div>` : ''}
+    `;
+    document.getElementById('modalOverlay').classList.add('open');
+  }
+
+  function openModal(tipo) {
+    document.getElementById('modalTitle').textContent = 'Agregar Marca Manual';
+    document.getElementById('modalBody').innerHTML = `
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:.75rem;">
+        <div class="filter-group" style="grid-column:1/-1;">
+          <label>Trabajador</label>
+          <select style="padding:.4rem .6rem; border:1px solid #cbd5e1; border-radius:5px; font-size:.8125rem; background:#f8fafc;">
+            <option>Seleccionar trabajador…</option>
+            <option>Alejandro Torres (W-001)</option>
+            <option>Carmen López (W-002)</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label>Fecha</label>
+          <input type="date" value="2026-04-27" style="padding:.4rem .6rem; border:1px solid #cbd5e1; border-radius:5px; font-size:.8125rem; background:#f8fafc;" />
+        </div>
+        <div class="filter-group">
+          <label>Tipo</label>
+          <select style="padding:.4rem .6rem; border:1px solid #cbd5e1; border-radius:5px; font-size:.8125rem; background:#f8fafc;">
+            <option>Entrada</option>
+            <option>Salida</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label>Hora</label>
+          <input type="time" value="08:00" style="padding:.4rem .6rem; border:1px solid #cbd5e1; border-radius:5px; font-size:.8125rem; background:#f8fafc;" />
+        </div>
+        <div class="filter-group">
+          <label>Dispositivo</label>
+          <select style="padding:.4rem .6rem; border:1px solid #cbd5e1; border-radius:5px; font-size:.8125rem; background:#f8fafc;">
+            <option>Reloj Principal</option>
+            <option>Reloj Planta Baja</option>
+            <option>Reloj Piso 2</option>
+          </select>
+        </div>
+        <div class="filter-group" style="grid-column:1/-1;">
+          <label>Motivo / Observación</label>
+          <input type="text" placeholder="Ej: Falla en lector biométrico…" style="padding:.4rem .6rem; border:1px solid #cbd5e1; border-radius:5px; font-size:.8125rem; background:#f8fafc;" />
+        </div>
+      </div>
+    `;
+    document.getElementById('modalOverlay').classList.add('open');
+  }
+
+  function closeModal(e) {
+    if (!e || e.target === document.getElementById('modalOverlay') || !e.target) {
+      document.getElementById('modalOverlay').classList.remove('open');
+    }
+  }
+
+  /* ══════════ Navbar dropdowns ══════════ */
+  document.querySelectorAll('.nav-menu').forEach(menu => {
+    menu.querySelector('.nav-trigger').addEventListener('click', function(e) {
+      e.stopPropagation();
+      const isOpen = menu.classList.contains('open');
+      document.querySelectorAll('.nav-menu.open').forEach(m => m.classList.remove('open'));
+      if (!isOpen) menu.classList.add('open');
+    });
+  });
+
+  document.addEventListener('click', () => {
+    document.querySelectorAll('.nav-menu.open').forEach(m => m.classList.remove('open'));
+  });
+
+  /* ══════════ Sincronizar ══════════ */
+  document.getElementById('btnSync').addEventListener('click', function() {
+    const icon = document.getElementById('syncIcon');
+    this.disabled = true;
+    this.style.opacity = '.7';
+    icon.style.transition = 'transform 1s linear';
+    icon.style.transform = 'rotate(360deg)';
+    setTimeout(() => {
+      icon.style.transition = '';
+      icon.style.transform = '';
+      this.disabled = false;
+      this.style.opacity = '1';
+    }, 1000);
+  });
+</script>
+</body>
+</html>

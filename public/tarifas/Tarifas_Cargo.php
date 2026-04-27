@@ -313,15 +313,22 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
                                                 </select>      
                                             </div> 
                                             <div class="form-group col-12 col-md-4">
-                                               <label for="cargo">Cargo:</label>
-                                                        <select id="cargo" name="cargo[]" class="form-control" multiple required>
+                                               <label for="cargos_tarifa">Cargo:</label>
+                                                        <select id="cargos_tarifa"
+                                                                name="cargo[]"
+                                                                class="form-control"
+                                                                multiple
+                                                                required
+                                                                data-multiselect
+                                                                data-placeholder="Seleccionar cargos..."
+                                                                data-search="Buscar cargo...">
                                                         <?php while ($rowCargo = sqlsrv_fetch_array($queryCargo, SQLSRV_FETCH_ASSOC)) { ?>
                                                             <option value="<?= (int)$rowCargo['id_cargo'] ?>">
                                                             <?= htmlspecialchars($rowCargo['cargo']) ?>
                                                             </option>
                                                         <?php } ?>
                                                         </select>
-                                                        <small class="text-muted">Escribe para buscar y selecciona varios.</small>
+                                                        <small class="text-muted">Escribe para buscar; cada cargo seleccionado queda dentro del input.</small>
 
                                             </div>
                                             <div class="form-group col-12 col-md-4">

@@ -1,0 +1,338 @@
+/* ============================================
+   FACTURACIÓN CONTRATISTA — Animaciones CSS
+   ============================================ */
+
+/* --- Keyframes base --- */
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInSidebar {
+  from {
+    opacity: 0;
+    transform: translateX(-260px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes countUp {
+  from { opacity: 0; transform: translateY(8px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -600px 0; }
+  100% { background-position: 600px 0; }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1;   transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(1.4); }
+}
+
+@keyframes borderGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(37, 99, 168, 0); }
+  50%       { box-shadow: 0 0 0 4px rgba(37, 99, 168, 0.18); }
+}
+
+@keyframes rowEnter {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes headerSlide {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* --- Clases de utilidad de animación --- */
+
+.anim-fade-in {
+  animation: fadeIn 0.45s ease both;
+}
+
+.anim-fade-up {
+  animation: fadeInUp 0.50s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.anim-fade-down {
+  animation: fadeInDown 0.40s ease both;
+}
+
+.anim-fade-left {
+  animation: fadeInLeft 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.anim-fade-right {
+  animation: fadeInRight 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.anim-scale-in {
+  animation: scaleIn 0.40s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* --- Staggered delays para grupos de elementos --- */
+.anim-delay-1  { animation-delay: 0.05s; }
+.anim-delay-2  { animation-delay: 0.10s; }
+.anim-delay-3  { animation-delay: 0.15s; }
+.anim-delay-4  { animation-delay: 0.20s; }
+.anim-delay-5  { animation-delay: 0.25s; }
+.anim-delay-6  { animation-delay: 0.30s; }
+.anim-delay-7  { animation-delay: 0.35s; }
+.anim-delay-8  { animation-delay: 0.40s; }
+.anim-delay-9  { animation-delay: 0.45s; }
+.anim-delay-10 { animation-delay: 0.50s; }
+.anim-delay-12 { animation-delay: 0.60s; }
+.anim-delay-14 { animation-delay: 0.70s; }
+.anim-delay-16 { animation-delay: 0.80s; }
+.anim-delay-20 { animation-delay: 1.00s; }
+
+/* --- Sidebar --- */
+.app-sidebar {
+  animation: slideInSidebar 0.50s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* --- Header --- */
+.app-header {
+  animation: headerSlide 0.40s ease both;
+  animation-delay: 0.10s;
+}
+
+/* --- KPI cards con stagger --- */
+.kpi-card {
+  animation: fadeInUp 0.50s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.kpi-card:nth-child(1) { animation-delay: 0.18s; }
+.kpi-card:nth-child(2) { animation-delay: 0.24s; }
+.kpi-card:nth-child(3) { animation-delay: 0.30s; }
+.kpi-card:nth-child(4) { animation-delay: 0.36s; }
+
+.kpi-value {
+  animation: countUp 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.kpi-card:nth-child(1) .kpi-value { animation-delay: 0.35s; }
+.kpi-card:nth-child(2) .kpi-value { animation-delay: 0.40s; }
+.kpi-card:nth-child(3) .kpi-value { animation-delay: 0.45s; }
+.kpi-card:nth-child(4) .kpi-value { animation-delay: 0.50s; }
+
+/* --- Cards de contenido --- */
+.info-card {
+  animation: fadeInLeft 0.50s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.info-card:nth-child(1) { animation-delay: 0.42s; }
+.info-card:nth-child(2) { animation-delay: 0.50s; }
+
+.section-card {
+  animation: fadeInUp 0.50s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.section-card:nth-child(1) { animation-delay: 0.44s; }
+.section-card:nth-child(2) { animation-delay: 0.52s; }
+
+/* --- Filas de tabla con stagger --- */
+.data-table tbody tr {
+  animation: rowEnter 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+  opacity: 0;
+}
+
+.data-table tbody tr:nth-child(1)  { animation-delay: 0.55s; }
+.data-table tbody tr:nth-child(2)  { animation-delay: 0.62s; }
+.data-table tbody tr:nth-child(3)  { animation-delay: 0.69s; }
+.data-table tbody tr:nth-child(4)  { animation-delay: 0.76s; }
+.data-table tbody tr:nth-child(5)  { animation-delay: 0.83s; }
+.data-table tbody tr:nth-child(6)  { animation-delay: 0.90s; }
+.data-table tbody tr:nth-child(7)  { animation-delay: 0.97s; }
+.data-table tbody tr:nth-child(8)  { animation-delay: 1.04s; }
+
+/* --- Items de historial --- */
+.history-item {
+  animation: fadeInRight 0.40s cubic-bezier(0.22, 1, 0.36, 1) both;
+  opacity: 0;
+}
+
+.history-item:nth-child(1) { animation-delay: 0.60s; }
+.history-item:nth-child(2) { animation-delay: 0.68s; }
+.history-item:nth-child(3) { animation-delay: 0.76s; }
+.history-item:nth-child(4) { animation-delay: 0.84s; }
+.history-item:nth-child(5) { animation-delay: 0.92s; }
+.history-item:nth-child(6) { animation-delay: 1.00s; }
+
+/* --- Page title --- */
+.page-title    { animation: fadeInDown 0.40s ease both; animation-delay: 0.12s; }
+.page-subtitle { animation: fadeInDown 0.40s ease both; animation-delay: 0.18s; }
+
+/* --- Totales block --- */
+.totals-block {
+  animation: fadeIn 0.40s ease both;
+  animation-delay: 1.10s;
+}
+
+/* --- Indicador vivo (badge-dot pulsante en estado pendiente) --- */
+.badge-pendiente .badge-dot {
+  animation: pulse-dot 1.8s ease-in-out infinite;
+}
+
+.badge-vencido .badge-dot {
+  animation: pulse-dot 1.2s ease-in-out infinite;
+}
+
+/* --- Estado loading / skeleton --- */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-alt) 25%,
+    var(--color-border) 50%,
+    var(--color-surface-alt) 75%
+  );
+  background-size: 600px 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+  color: transparent;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* --- Hover glow en botón primario --- */
+.btn-primary {
+  transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.10s ease;
+}
+
+.btn-primary:hover {
+  box-shadow: 0 4px 14px rgba(37, 99, 168, 0.35);
+  transform: translateY(-1px);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+/* --- Focus visible accesible --- */
+:focus-visible {
+  outline: 2px solid var(--color-primary-light);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* --- Transición suave al cambiar de tab/vista --- */
+.view-enter {
+  animation: fadeInUp 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* --- Responsive --- */
+@media (max-width: 1200px) {
+  .kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .content-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .app-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto 1fr;
+  }
+
+  .app-sidebar {
+    grid-column: 1;
+    grid-row: 1;
+    animation: fadeInDown 0.45s ease both;
+  }
+
+  .app-header {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .app-main {
+    grid-column: 1;
+    grid-row: 3;
+    padding: var(--space-4);
+  }
+
+  .kpi-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-3);
+  }
+
+  .info-grid {
+    grid-template-columns: 1fr;
+  }
+}

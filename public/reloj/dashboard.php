@@ -9,24 +9,25 @@ if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha)) {
 $fecha_dt     = $fecha . ' 00:00:00';
 $fecha_dt_fin = $fecha . ' 23:59:59';
 
-/*
- * Clasificación de tipo por turno (igual que marcaciones.php):
- * Si la marca está más cerca de hora_entrada → entrada
- * Si está más cerca de hora_salida           → salida
- * Sin turno asignado o sin detalle           → entrada (por defecto)
- *
- * Usamos ABS(DATEDIFF(second, CAST(fecha_hora AS time), hora_X)) para
- * medir distancia en segundos sin importar el orden.
- * dia_semana: ((DATEDIFF(day,'19000101', fecha) % 7) + 1)  →  1=lun … 7=dom
- */
-$sql_tipo = "
-    CASE
-        WHEN td.hora_entrada IS NULL OR td.hora_salida IS NULL THEN 'entrada'
-        WHEN ABS(DATEDIFF(second, CAST(m.fecha_hora AS time), td.hora_entrada))
-          <= ABS(DATEDIFF(second, CAST(m.fecha_hora AS time), td.hora_salida))
-        THEN 'entrada'
-        ELSE 'salida'
-    END
+$sql_marcaciones_dia = "
+    SELECT
+        m.id_numero,
+        m.id_dispositivo,
+        m.fecha_hora,
+        COUNT(*) OVER (
+            PARTITION BY m.id_numero, CAST(m.fecha_hora AS date)
+        ) AS marcas_dia,
+        ROW_NUMBER() OVER (
+            PARTITION BY m.id_numero, CAST(m.fecha_hora AS date)
+            ORDER BY m.fecha_hora ASC, m.id_dispositivo ASC
+        ) AS rn_entrada,
+        ROW_NUMBER() OVER (
+            PARTITION BY m.id_numero, CAST(m.fecha_hora AS date)
+            ORDER BY m.fecha_hora DESC, m.id_dispositivo DESC
+        ) AS rn_salida
+    FROM dbo.reloj_marcacion m
+    WHERE m.fecha_hora BETWEEN CONVERT(datetime,?,120) AND CONVERT(datetime,?,120)
+      AND m.id_numero != 0
 ";
 
 // ── Resumen por dispositivo ───────────────────────────────────────────────
@@ -38,17 +39,14 @@ $resumen = sqlsrv_query($conn, "
     FROM dbo.reloj_dispositivo d
     LEFT JOIN (
         SELECT
-            m.id_numero,
-            m.id_dispositivo,
-            $sql_tipo AS tipo_calc
-        FROM dbo.reloj_marcacion m
-        LEFT JOIN dbo.reloj_trabajador rt
-               ON rt.id_numero = m.id_numero
-        LEFT JOIN dbo.dota_turno_detalle td
-               ON td.id_turno  = rt.id_turno AND td.activo = 1
-              AND td.dia_semana = ((DATEDIFF(day,'19000101',CAST(m.fecha_hora AS date)) % 7) + 1)
-        WHERE m.fecha_hora BETWEEN CONVERT(datetime,?,120) AND CONVERT(datetime,?,120)
-          AND m.id_numero != 0
+            md.id_numero,
+            md.id_dispositivo,
+            CASE
+                WHEN md.rn_entrada = 1 THEN 'entrada'
+                WHEN md.marcas_dia > 1 AND md.rn_salida = 1 THEN 'salida'
+                ELSE 'intermedia'
+            END AS tipo_calc
+        FROM ($sql_marcaciones_dia) md
     ) tc ON tc.id_dispositivo = d.id
     WHERE d.activo = 1
     GROUP BY d.id, d.nombre
@@ -59,29 +57,26 @@ $resumen = sqlsrv_query($conn, "
 $adentro = sqlsrv_query($conn, "
     WITH marcas AS (
         SELECT
-            m.id_numero,
-            m.id_dispositivo,
-            m.fecha_hora,
-            $sql_tipo AS tipo_calc
-        FROM dbo.reloj_marcacion m
-        LEFT JOIN dbo.reloj_trabajador rt
-               ON rt.id_numero = m.id_numero
-        LEFT JOIN dbo.dota_turno_detalle td
-               ON td.id_turno  = rt.id_turno AND td.activo = 1
-              AND td.dia_semana = ((DATEDIFF(day,'19000101',CAST(m.fecha_hora AS date)) % 7) + 1)
-        WHERE m.fecha_hora BETWEEN CONVERT(datetime,?,120) AND CONVERT(datetime,?,120)
-          AND m.id_numero != 0
+            md.id_numero,
+            md.id_dispositivo,
+            md.fecha_hora,
+            CASE
+                WHEN md.rn_entrada = 1 THEN 'entrada'
+                WHEN md.marcas_dia > 1 AND md.rn_salida = 1 THEN 'salida'
+                ELSE 'intermedia'
+            END AS tipo_calc
+        FROM ($sql_marcaciones_dia) md
     )
     SELECT
         mc.id_numero,
         ISNULL(t.rut,    CAST(mc.id_numero AS NVARCHAR(20))) AS rut,
         ISNULL(t.nombre, N'(sin registro)')                  AS nombre,
         MAX(CASE WHEN mc.tipo_calc = 'entrada' THEN mc.fecha_hora END) AS ultima_entrada,
-        d.nombre AS dispositivo
+        MAX(d.nombre) AS dispositivo
     FROM marcas mc
     LEFT JOIN dbo.reloj_trabajador  t ON t.id_numero = mc.id_numero
     JOIN  dbo.reloj_dispositivo     d ON d.id        = mc.id_dispositivo
-    GROUP BY mc.id_numero, mc.id_dispositivo, t.rut, t.nombre, d.nombre
+    GROUP BY mc.id_numero, t.rut, t.nombre
     HAVING MAX(CASE WHEN mc.tipo_calc = 'entrada' THEN mc.fecha_hora END) >
            ISNULL(MAX(CASE WHEN mc.tipo_calc = 'salida' THEN mc.fecha_hora END), '1900-01-01')
     ORDER BY nombre
@@ -91,21 +86,26 @@ $adentro = sqlsrv_query($conn, "
 $ultimas = sqlsrv_query($conn, "
     SELECT TOP 30
         m.fecha_hora,
-        $sql_tipo AS tipo_calc,
+        CASE
+            WHEN md.rn_entrada = 1 THEN 'entrada'
+            WHEN md.marcas_dia > 1 AND md.rn_salida = 1 THEN 'salida'
+            ELSE 'intermedia'
+        END AS tipo_calc,
         ISNULL(t.rut,    CAST(m.id_numero AS NVARCHAR(20))) AS rut,
         ISNULL(t.nombre, N'(sin registro)')                  AS nombre,
         d.nombre AS dispositivo
     FROM dbo.reloj_marcacion m
+    JOIN ($sql_marcaciones_dia) md
+      ON md.id_numero = m.id_numero
+     AND md.id_dispositivo = m.id_dispositivo
+     AND md.fecha_hora = m.fecha_hora
     LEFT JOIN dbo.reloj_trabajador t
            ON t.id_numero = m.id_numero
-    LEFT JOIN dbo.dota_turno_detalle td
-           ON td.id_turno  = t.id_turno AND td.activo = 1
-          AND td.dia_semana = ((DATEDIFF(day,'19000101',CAST(m.fecha_hora AS date)) % 7) + 1)
     JOIN  dbo.reloj_dispositivo    d ON d.id = m.id_dispositivo
     WHERE m.fecha_hora BETWEEN CONVERT(datetime,?,120) AND CONVERT(datetime,?,120)
       AND m.id_numero != 0
     ORDER BY m.fecha_hora DESC
-", [$fecha_dt, $fecha_dt_fin]);
+", [$fecha_dt, $fecha_dt_fin, $fecha_dt, $fecha_dt_fin]);
 
 $title = "Reloj — Dashboard";
 include __DIR__ . '/../partials/header.php';
@@ -203,13 +203,17 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
               <?php while ($u = sqlsrv_fetch_array($ultimas, SQLSRV_FETCH_ASSOC)):
                   $ts      = $u['fecha_hora'] instanceof DateTime
                              ? $u['fecha_hora']->format('H:i:s') : '';
-                  $entrada = $u['tipo_calc'] === 'entrada';
+                  $tipo_calc = (string)$u['tipo_calc'];
               ?>
                 <tr>
                   <td><?= $ts ?></td>
-                  <td><?= $entrada
-                    ? '<span class="badge bg-success">Entrada</span>'
-                    : '<span class="badge bg-danger">Salida</span>' ?></td>
+                  <td><?php if ($tipo_calc === 'entrada'): ?>
+                    <span class="badge bg-success">Entrada</span>
+                  <?php elseif ($tipo_calc === 'salida'): ?>
+                    <span class="badge bg-danger">Salida</span>
+                  <?php else: ?>
+                    <span class="badge bg-secondary">Marca</span>
+                  <?php endif; ?></td>
                   <td><?= htmlspecialchars($u['nombre']) ?></td>
                   <td><small><?= htmlspecialchars($u['dispositivo']) ?></small></td>
                 </tr>

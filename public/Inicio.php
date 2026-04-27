@@ -69,45 +69,95 @@ $reloj_fin = $reloj_hoy . ' 23:59:59';
 $reloj_resumen = $reloj_adentro = $reloj_ultimas = null;
 
 if (puede_modulo('reloj')) {
+    $sql_reloj_marcaciones_dia = "
+        SELECT
+            m.id_numero,
+            m.id_dispositivo,
+            m.fecha_hora,
+            COUNT(*) OVER (
+                PARTITION BY m.id_numero, CAST(m.fecha_hora AS date)
+            ) AS marcas_dia,
+            ROW_NUMBER() OVER (
+                PARTITION BY m.id_numero, CAST(m.fecha_hora AS date)
+                ORDER BY m.fecha_hora ASC, m.id_dispositivo ASC
+            ) AS rn_entrada,
+            ROW_NUMBER() OVER (
+                PARTITION BY m.id_numero, CAST(m.fecha_hora AS date)
+                ORDER BY m.fecha_hora DESC, m.id_dispositivo DESC
+            ) AS rn_salida
+        FROM dbo.reloj_marcacion m
+        WHERE m.fecha_hora BETWEEN CONVERT(datetime,?,120) AND CONVERT(datetime,?,120)
+          AND m.id_numero != 0
+    ";
+
     $reloj_resumen = sqlsrv_query($conn, "
         SELECT d.nombre AS dispositivo,
-               COUNT(DISTINCT CASE WHEN m.tipo=1 THEN m.id_numero END) AS entradas,
-               COUNT(DISTINCT CASE WHEN m.tipo=0 THEN m.id_numero END) AS salidas
+               COUNT(DISTINCT CASE WHEN tc.tipo_calc = 'entrada' THEN tc.id_numero END) AS entradas,
+               COUNT(DISTINCT CASE WHEN tc.tipo_calc = 'salida'  THEN tc.id_numero END) AS salidas
         FROM dbo.reloj_dispositivo d
-        LEFT JOIN dbo.reloj_marcacion m
-            ON m.id_dispositivo = d.id
-            AND m.fecha_hora BETWEEN CONVERT(datetime,?,120) AND CONVERT(datetime,?,120)
+        LEFT JOIN (
+            SELECT
+                md.id_numero,
+                md.id_dispositivo,
+                CASE
+                    WHEN md.rn_entrada = 1 THEN 'entrada'
+                    WHEN md.marcas_dia > 1 AND md.rn_salida = 1 THEN 'salida'
+                    ELSE 'intermedia'
+                END AS tipo_calc
+            FROM ($sql_reloj_marcaciones_dia) md
+        ) tc ON tc.id_dispositivo = d.id
         WHERE d.activo = 1
         GROUP BY d.id, d.nombre ORDER BY d.nombre
     ", [$reloj_dt, $reloj_fin]);
 
     $reloj_adentro = sqlsrv_query($conn, "
-        SELECT m.id_numero,
-               ISNULL(t.rut, CAST(m.id_numero AS NVARCHAR(20))) AS rut,
+        WITH marcas AS (
+            SELECT
+                md.id_numero,
+                md.id_dispositivo,
+                md.fecha_hora,
+                CASE
+                    WHEN md.rn_entrada = 1 THEN 'entrada'
+                    WHEN md.marcas_dia > 1 AND md.rn_salida = 1 THEN 'salida'
+                    ELSE 'intermedia'
+                END AS tipo_calc
+            FROM ($sql_reloj_marcaciones_dia) md
+        )
+        SELECT mc.id_numero,
+               ISNULL(t.rut, CAST(mc.id_numero AS NVARCHAR(20))) AS rut,
                ISNULL(t.nombre,'(sin registro)')                 AS nombre,
-               MAX(m.fecha_hora)                                 AS ultima_marca,
-               d.nombre AS dispositivo
-        FROM dbo.reloj_marcacion m
-        LEFT JOIN dbo.reloj_trabajador t ON t.id_numero = m.id_numero
-        JOIN  dbo.reloj_dispositivo    d ON d.id = m.id_dispositivo
-        WHERE m.fecha_hora BETWEEN CONVERT(datetime,?,120) AND CONVERT(datetime,?,120)
-        GROUP BY m.id_numero, t.rut, t.nombre, d.nombre, d.id
-        HAVING MAX(CASE WHEN m.tipo=1 THEN m.fecha_hora END) >
-               ISNULL(MAX(CASE WHEN m.tipo=0 THEN m.fecha_hora END),'1900-01-01')
+               MAX(CASE WHEN mc.tipo_calc = 'entrada' THEN mc.fecha_hora END) AS ultima_marca,
+               MAX(d.nombre) AS dispositivo
+        FROM marcas mc
+        LEFT JOIN dbo.reloj_trabajador t ON t.id_numero = mc.id_numero
+        JOIN  dbo.reloj_dispositivo    d ON d.id = mc.id_dispositivo
+        GROUP BY mc.id_numero, t.rut, t.nombre
+        HAVING MAX(CASE WHEN mc.tipo_calc = 'entrada' THEN mc.fecha_hora END) >
+               ISNULL(MAX(CASE WHEN mc.tipo_calc = 'salida' THEN mc.fecha_hora END),'1900-01-01')
         ORDER BY nombre
     ", [$reloj_dt, $reloj_fin]);
 
     $reloj_ultimas = sqlsrv_query($conn, "
         SELECT TOP 10
-            m.fecha_hora, m.tipo,
+            m.fecha_hora,
+            CASE
+                WHEN md.rn_entrada = 1 THEN 'entrada'
+                WHEN md.marcas_dia > 1 AND md.rn_salida = 1 THEN 'salida'
+                ELSE 'intermedia'
+            END AS tipo_calc,
             ISNULL(t.nombre,'(sin registro)') AS nombre,
             d.nombre AS dispositivo
         FROM dbo.reloj_marcacion m
+        JOIN ($sql_reloj_marcaciones_dia) md
+          ON md.id_numero = m.id_numero
+         AND md.id_dispositivo = m.id_dispositivo
+         AND md.fecha_hora = m.fecha_hora
         LEFT JOIN dbo.reloj_trabajador t ON t.id_numero = m.id_numero
         JOIN  dbo.reloj_dispositivo    d ON d.id = m.id_dispositivo
         WHERE m.fecha_hora BETWEEN CONVERT(datetime,?,120) AND CONVERT(datetime,?,120)
+          AND m.id_numero != 0
         ORDER BY m.fecha_hora DESC
-    ", [$reloj_dt, $reloj_fin]);
+    ", [$reloj_dt, $reloj_fin, $reloj_dt, $reloj_fin]);
 }
 
 $title = "Inicio";
@@ -224,12 +274,17 @@ include __DIR__ . '/partials/navbar_wrapper.php';
                         <?php while ($u = sqlsrv_fetch_array($reloj_ultimas, SQLSRV_FETCH_ASSOC)):
                             $ts = $u['fecha_hora'] instanceof DateTime
                                   ? $u['fecha_hora']->format('H:i:s') : '';
+                            $tipo_calc = (string)$u['tipo_calc'];
                         ?>
                             <tr>
                                 <td><?= $ts ?></td>
-                                <td><?= $u['tipo']==1
-                                    ? '<span class="badge bg-success">Entrada</span>'
-                                    : '<span class="badge bg-danger">Salida</span>' ?></td>
+                                <td><?php if ($tipo_calc === 'entrada'): ?>
+                                    <span class="badge bg-success">Entrada</span>
+                                <?php elseif ($tipo_calc === 'salida'): ?>
+                                    <span class="badge bg-danger">Salida</span>
+                                <?php else: ?>
+                                    <span class="badge bg-secondary">Marca</span>
+                                <?php endif; ?></td>
                                 <td><?= htmlspecialchars($u['nombre']) ?></td>
                             </tr>
                         <?php endwhile; ?>

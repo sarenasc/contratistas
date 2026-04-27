@@ -1,4 +1,6 @@
 <?php
+date_default_timezone_set('America/Santiago');
+
 // Detecta /contratista/public desde SCRIPT_NAME; fallback al valor hardcodeado.
 $_script = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '');
 $_pos    = strpos($_script, '/public/');

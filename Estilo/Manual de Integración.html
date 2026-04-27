@@ -1,0 +1,1155 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Manual de Integración — Reloj Control / Facturación</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="animations.css" />
+  <link rel="stylesheet" href="components.css" />
+  <script src="multiselect.js" defer></script>
+  <style>
+    body { display: flex; background: #f0f4f8; }
+
+    /* ── SIDEBAR ── */
+    .doc-sidebar {
+      width: 240px; min-height: 100vh;
+      background: #13151f;
+      position: fixed; top: 0; left: 0; bottom: 0;
+      overflow-y: auto; padding: 1.5rem 0 3rem; z-index: 100;
+    }
+    .doc-logo { padding: 0 1.25rem 1.25rem; border-bottom: 1px solid rgba(255,255,255,.08); margin-bottom: 1rem; }
+    .doc-logo-title { font-size: .875rem; font-weight: 800; color: #5ecfca; }
+    .doc-logo-sub   { font-size: .68rem; color: rgba(255,255,255,.3); margin-top: 2px; }
+    .doc-nav-section { padding: .4rem 1.25rem .15rem; font-size: .62rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: rgba(255,255,255,.22); margin-top: .65rem; }
+    .doc-nav-link { display: block; padding: .4rem 1.25rem; font-size: .8rem; color: rgba(255,255,255,.55); text-decoration: none; border-left: 2px solid transparent; transition: all .15s; }
+    .doc-nav-link:hover { color: rgba(255,255,255,.9); background: rgba(255,255,255,.05); border-left-color: #5ecfca; }
+    .doc-nav-link.active { color: #5ecfca; border-left-color: #5ecfca; background: rgba(94,207,202,.06); }
+
+    /* ── MAIN ── */
+    .doc-main { margin-left: 240px; flex: 1; padding: 2.5rem 3rem; max-width: 920px; }
+
+    /* Hero */
+    .doc-hero { background: #13151f; border-radius: 12px; padding: 2rem 2.5rem; margin-bottom: 2.5rem; }
+    .doc-hero h1 { font-size: 1.75rem; font-weight: 800; color: #5ecfca; margin-bottom: .5rem; letter-spacing: -.02em; }
+    .doc-hero p  { font-size: .9rem; color: rgba(255,255,255,.55); line-height: 1.6; max-width: 560px; }
+    .hero-files  { display: flex; gap: .6rem; margin-top: 1.1rem; flex-wrap: wrap; }
+    .hero-file   { display: inline-flex; align-items: center; gap: .4rem; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.1); border-radius: 5px; padding: .3rem .75rem; font-size: .72rem; font-family: 'JetBrains Mono', monospace; color: rgba(255,255,255,.75); }
+    .hero-file-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+    /* Secciones */
+    .doc-section { margin-bottom: 3rem; scroll-margin-top: 1.5rem; }
+    .doc-section-title { font-size: 1.15rem; font-weight: 800; color: #0f172a; margin-bottom: .3rem; letter-spacing: -.02em; display: flex; align-items: center; gap: .6rem; }
+    .doc-section-title::after { content: ''; flex: 1; height: 2px; background: #e2e8f0; border-radius: 2px; }
+    .doc-section-sub { font-size: .85rem; color: #64748b; margin-bottom: 1.1rem; }
+
+    /* Card doc */
+    .doc-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; margin-bottom: 1.1rem; }
+    .doc-card-header { background: #f8fafc; padding: .6rem 1rem; border-bottom: 1px solid #e2e8f0; font-size: .7rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .05em; display: flex; align-items: center; justify-content: space-between; }
+    .doc-card-body   { padding: 1rem 1.1rem; }
+
+    /* Código */
+    pre { background: #0d1117; border-radius: 7px; padding: .9rem 1.1rem; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: .76rem; line-height: 1.65; color: #e6edf3; margin-bottom: 1rem; border: 1px solid #21262d; }
+    code { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 4px; padding: 1px 5px; font-family: 'JetBrains Mono', monospace; font-size: .8em; color: #1d6fb8; }
+    .tk  { color: #7ee787; }   /* tag */
+    .ta  { color: #79c0ff; }   /* attr */
+    .ts  { color: #a5d6ff; }   /* string */
+    .tc  { color: #8b949e; }   /* comment */
+    .tv  { color: #ffa657; }   /* value/class */
+
+    /* Tabla ref */
+    .ref-table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+    .ref-table thead tr { background: #f8fafc; }
+    .ref-table th { padding: .5rem .85rem; text-align: left; font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #64748b; border-bottom: 2px solid #e2e8f0; }
+    .ref-table td { padding: .55rem .85rem; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+    .ref-table tr:last-child td { border-bottom: none; }
+    .ref-table tr:hover td { background: #f8fafc; }
+    .ref-table td:first-child { font-family: 'JetBrains Mono', monospace; font-size: .74rem; color: #1d6fb8; font-weight: 500; white-space: nowrap; }
+    .ref-table td.desc { color: #64748b; }
+
+    /* Steps */
+    .steps { display: flex; flex-direction: column; gap: .75rem; }
+    .step  { display: flex; gap: 1rem; align-items: flex-start; }
+    .step-num { width: 26px; height: 26px; border-radius: 50%; background: #1d6fb8; color: #fff; font-size: .72rem; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; }
+    .step-title { font-size: .875rem; font-weight: 700; color: #0f172a; margin-bottom: .15rem; }
+    .step-desc  { font-size: .8rem; color: #64748b; line-height: 1.5; }
+
+    /* Alerts */
+    .alert { border-radius: 7px; padding: .65rem .9rem; font-size: .8rem; line-height: 1.55; margin-bottom: 1rem; display: flex; gap: .65rem; align-items: flex-start; }
+    .alert-icon { font-size: .95rem; flex-shrink: 0; margin-top: 1px; }
+    .alert-info    { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; }
+    .alert-warning { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
+    .alert-success { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
+    .alert-danger  { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+
+    /* Colores */
+    .color-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: .65rem; }
+    .color-swatch { border-radius: 7px; overflow: hidden; border: 1px solid #e2e8f0; }
+    .color-sample { height: 44px; }
+    .color-info { background: #fff; padding: .45rem .6rem; }
+    .color-name { font-size: .72rem; font-weight: 700; color: #0f172a; }
+    .color-var  { font-size: .63rem; font-family: 'JetBrains Mono', monospace; color: #64748b; margin-top: 2px; }
+
+    /* Demo de animaciones */
+    .anim-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: .65rem; }
+    .anim-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 7px; padding: .75rem 1rem; cursor: pointer; text-align: center; transition: all .15s; }
+    .anim-box:hover { background: #eff6ff; border-color: #bfdbfe; }
+    .anim-preview { width: 32px; height: 32px; background: #1d6fb8; border-radius: 5px; margin: 0 auto .4rem; display: flex; align-items: center; justify-content: center; color: #fff; font-size: .7rem; font-weight: 700; }
+    .anim-label { font-size: .72rem; font-weight: 600; color: #0f172a; font-family: 'JetBrains Mono', monospace; }
+    .anim-sub   { font-size: .68rem; color: #64748b; margin-top: 2px; }
+
+    /* Flujo */
+    .flow-steps { display: flex; align-items: center; flex-wrap: wrap; gap: 0; margin: 1rem 0; }
+    .flow-step { background: #fff; border: 1px solid #e2e8f0; border-radius: 6px; padding: .5rem .8rem; font-size: .75rem; font-weight: 600; color: #0f172a; white-space: nowrap; }
+    .flow-step.active { background: #1d6fb8; color: #fff; border-color: #1d6fb8; }
+    .flow-arrow { padding: 0 .3rem; color: #94a3b8; font-size: .75rem; }
+
+    /* Live demo area */
+    .demo-area { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 7px; padding: 1.25rem; margin-bottom: 1rem; }
+    .demo-area .field { margin-bottom: .85rem; }
+    .demo-area .field:last-child { margin-bottom: 0; }
+
+    /* Demo progress */
+    .demo-progress-grid { display: flex; flex-direction: column; gap: 1rem; }
+
+    /* Divider */
+    hr.doc-div { border: none; border-top: 1px solid #e2e8f0; margin: 2rem 0; }
+
+    @media (max-width: 768px) {
+      .doc-sidebar { display: none; }
+      .doc-main { margin-left: 0; padding: 1.25rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════ SIDEBAR ═══════════════ -->
+<aside class="doc-sidebar">
+  <div class="doc-logo">
+    <div class="doc-logo-title">Manual de Integración</div>
+    <div class="doc-logo-sub">Reloj Control · Facturación v3</div>
+  </div>
+
+  <div class="doc-nav-section">Inicio</div>
+  <a class="doc-nav-link active" href="#inicio">Introducción</a>
+  <a class="doc-nav-link" href="#archivos">Archivos del proyecto</a>
+  <a class="doc-nav-link" href="#instalacion">Instalación rápida</a>
+
+  <div class="doc-nav-section">Formularios</div>
+  <a class="doc-nav-link" href="#inputs">Inputs de texto</a>
+  <a class="doc-nav-link" href="#selects">Selects</a>
+  <a class="doc-nav-link" href="#multiselect">Multiselect con tags</a>
+  <a class="doc-nav-link" href="#checks">Checkbox y Radio</a>
+  <a class="doc-nav-link" href="#switch">Switch / Toggle</a>
+  <a class="doc-nav-link" href="#validacion">Validación y errores</a>
+
+  <div class="doc-nav-section">Indicadores</div>
+  <a class="doc-nav-link" href="#progress">Barras de progreso</a>
+  <a class="doc-nav-link" href="#progress-steps">Barra de pasos</a>
+  <a class="doc-nav-link" href="#progress-ring">Progreso circular</a>
+  <a class="doc-nav-link" href="#skeleton">Skeleton loading</a>
+
+  <div class="doc-nav-section">Componentes UI</div>
+  <a class="doc-nav-link" href="#badges">Badges y estados</a>
+  <a class="doc-nav-link" href="#botones">Botones</a>
+  <a class="doc-nav-link" href="#tablas">Tablas</a>
+  <a class="doc-nav-link" href="#kpi">Tarjetas KPI</a>
+
+  <div class="doc-nav-section">Animaciones</div>
+  <a class="doc-nav-link" href="#animaciones">Clases fade / slide</a>
+  <a class="doc-nav-link" href="#stagger">Stagger secuencial</a>
+
+  <div class="doc-nav-section">Sistema</div>
+  <a class="doc-nav-link" href="#navbar">Navbar completo</a>
+  <a class="doc-nav-link" href="#login">Página de Login</a>
+  <a class="doc-nav-link" href="#flujo">Flujo de facturación</a>
+  <a class="doc-nav-link" href="#tokens">Tokens de diseño</a>
+  <a class="doc-nav-link" href="#colores">Paleta de colores</a>
+</aside>
+
+<!-- ═══════════════ MAIN ═══════════════ -->
+<main class="doc-main">
+
+<!-- HERO -->
+<div class="doc-hero" id="inicio">
+  <h1>Manual de Integración CSS</h1>
+  <p>Guía completa para aplicar estilos, formularios, animaciones y componentes del sistema <strong style="color:#fff;">Reloj Control / Facturación de Contratistas</strong> a cualquier vista ERB.</p>
+  <div class="hero-files">
+    <span class="hero-file"><span class="hero-file-dot" style="background:#5ecfca;"></span>styles.css</span>
+    <span class="hero-file"><span class="hero-file-dot" style="background:#fbbf24;"></span>animations.css</span>
+    <span class="hero-file"><span class="hero-file-dot" style="background:#a78bfa;"></span>components.css</span>
+    <span class="hero-file"><span class="hero-file-dot" style="background:#f472b6;"></span>multiselect.js</span>
+    <span class="hero-file"><span class="hero-file-dot" style="background:#60a5fa;"></span>Login.html</span>
+    <span class="hero-file"><span class="hero-file-dot" style="background:#86efac;"></span>Reloj Control - Marcaciones.html</span>
+  </div>
+</div>
+
+<!-- ─── ARCHIVOS ─── -->
+<section class="doc-section" id="archivos">
+  <div class="doc-section-title">Archivos del proyecto</div>
+  <p class="doc-section-sub">Copia estos 4 archivos a tu carpeta de assets.</p>
+  <div class="doc-card">
+    <div class="doc-card-header">Estructura</div>
+    <div class="doc-card-body">
+      <pre><span class="tc"># Copiar a app/assets/ o public/css|js/</span>
+
+tu-proyecto/
+├── <span class="tv">styles.css</span>        <span class="tc">← Tokens + layout + componentes base</span>
+├── <span class="tv">animations.css</span>    <span class="tc">← Keyframes, fade, stagger, skeleton</span>
+├── <span class="tv">components.css</span>    <span class="tc">← Inputs, selects, progress, forms</span>
+└── <span class="tv">multiselect.js</span>    <span class="tc">← Plugin multiselect con tags (vanilla JS)</span></pre>
+    </div>
+  </div>
+</section>
+
+<!-- ─── INSTALACIÓN ─── -->
+<section class="doc-section" id="instalacion">
+  <div class="doc-section-title">Instalación rápida</div>
+  <p class="doc-section-sub">Agrega esto al <code>&lt;head&gt;</code> de tu layout compartido (application.html.erb).</p>
+  <div class="doc-card">
+    <div class="doc-card-header">application.html.erb — &lt;head&gt;</div>
+    <div class="doc-card-body">
+      <pre><span class="tc">&lt;!-- Fuentes --&gt;</span>
+<span class="tk">&lt;link</span> <span class="ta">rel</span>=<span class="ts">"preconnect"</span> <span class="ta">href</span>=<span class="ts">"https://fonts.googleapis.com"</span><span class="tk">&gt;</span>
+<span class="tk">&lt;link</span> <span class="ta">href</span>=<span class="ts">"https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap"</span> <span class="ta">rel</span>=<span class="ts">"stylesheet"</span><span class="tk">&gt;</span>
+
+<span class="tc">&lt;!-- Estilos del sistema (en orden) --&gt;</span>
+<span class="tk">&lt;link</span> <span class="ta">rel</span>=<span class="ts">"stylesheet"</span> <span class="ta">href</span>=<span class="ts">"styles.css"</span><span class="tk">&gt;</span>
+<span class="tk">&lt;link</span> <span class="ta">rel</span>=<span class="ts">"stylesheet"</span> <span class="ta">href</span>=<span class="ts">"animations.css"</span><span class="tk">&gt;</span>
+<span class="tk">&lt;link</span> <span class="ta">rel</span>=<span class="ts">"stylesheet"</span> <span class="ta">href</span>=<span class="ts">"components.css"</span><span class="tk">&gt;</span>
+
+<span class="tc">&lt;!-- JS del multiselect (al final del body o con defer) --&gt;</span>
+<span class="tk">&lt;script</span> <span class="ta">src</span>=<span class="ts">"multiselect.js"</span> <span class="ta">defer</span><span class="tk">&gt;&lt;/script&gt;</span></pre>
+    </div>
+  </div>
+  <div class="alert alert-warning">
+    <span class="alert-icon">⚠️</span>
+    <span>Carga <code>styles.css</code> <strong>antes</strong> que <code>components.css</code> — el segundo usa variables definidas en el primero.</span>
+  </div>
+</section>
+
+<hr class="doc-div" />
+
+<!-- ─── INPUTS ─── -->
+<section class="doc-section" id="inputs">
+  <div class="doc-section-title">Inputs de texto</div>
+  <p class="doc-section-sub">Clase base <code>.form-input</code>. Siempre úsala con un <code>.field</code> contenedor.</p>
+
+  <div class="demo-area">
+    <div class="field">
+      <label class="form-label" for="d-txt">Nombre del contratista <span class="required">*</span></label>
+      <div class="input-group">
+        <span class="input-icon-left">
+          <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/></svg>
+        </span>
+        <input id="d-txt" type="text" class="form-input has-icon-left" placeholder="Ej. Manuel Rodríguez" />
+      </div>
+      <span class="form-hint">Nombre completo tal como aparece en el RFC.</span>
+    </div>
+    <div class="field-grid">
+      <div class="field">
+        <label class="form-label" for="d-rfc">RFC</label>
+        <input id="d-rfc" type="text" class="form-input" placeholder="XXXX000000XX0" style="font-family:'JetBrains Mono',monospace;" />
+      </div>
+      <div class="field">
+        <label class="form-label" for="d-fecha">Fecha de contrato</label>
+        <input id="d-fecha" type="date" class="form-input" />
+      </div>
+      <div class="field">
+        <label class="form-label">Input pequeño (sm)</label>
+        <input type="text" class="form-input form-input-sm" placeholder="Buscar…" />
+      </div>
+      <div class="field">
+        <label class="form-label">Input grande (lg)</label>
+        <input type="text" class="form-input form-input-lg" placeholder="Folio factura…" />
+      </div>
+    </div>
+    <div class="field">
+      <label class="form-label">Observaciones</label>
+      <textarea class="form-textarea" placeholder="Notas adicionales sobre la jornada…" rows="3"></textarea>
+    </div>
+  </div>
+
+  <div class="doc-card">
+    <div class="doc-card-header">HTML</div>
+    <div class="doc-card-body">
+      <pre><span class="tc">&lt;!-- Campo básico --&gt;</span>
+<span class="tk">&lt;div</span> <span class="ta">class</span>=<span class="ts">"field"</span><span class="tk">&gt;</span>
+  <span class="tk">&lt;label</span> <span class="ta">class</span>=<span class="ts">"form-label"</span><span class="tk">&gt;</span>RFC <span class="tk">&lt;span</span> <span class="ta">class</span>=<span class="ts">"required"</span><span class="tk">&gt;</span>*<span class="tk">&lt;/span&gt;&lt;/label&gt;</span>
+  <span class="tk">&lt;input</span> <span class="ta">type</span>=<span class="ts">"text"</span> <span class="ta">class</span>=<span class="ts">"form-input"</span> <span class="ta">placeholder</span>=<span class="ts">"XXXX000000XX0"</span><span class="tk">&gt;</span>
+  <span class="tk">&lt;span</span> <span class="ta">class</span>=<span class="ts">"form-hint"</span><span class="tk">&gt;</span>13 caracteres para personas morales.<span class="tk">&lt;/span&gt;</span>
+<span class="tk">&lt;/div&gt;</span>
+
+<span class="tc">&lt;!-- Con ícono izquierdo --&gt;</span>
+<span class="tk">&lt;div</span> <span class="ta">class</span>=<span class="ts">"input-group"</span><span class="tk">&gt;</span>
+  <span class="tk">&lt;span</span> <span class="ta">class</span>=<span class="ts">"input-icon-left"</span><span class="tk">&gt;</span>...svg...<span class="tk">&lt;/span&gt;</span>
+  <span class="tk">&lt;input</span> <span class="ta">class</span>=<span class="ts">"form-input has-icon-left"</span> <span class="ta">type</span>=<span class="ts">"text"</span><span class="tk">&gt;</span>
+<span class="tk">&lt;/div&gt;</span>
+
+<span class="tc">&lt;!-- Tamaños --&gt;</span>
+<span class="tk">&lt;input</span> <span class="ta">class</span>=<span class="ts">"form-input form-input-sm"</span><span class="tk">&gt;</span>  <span class="tc">&lt;!-- 32px --&gt;</span>
+<span class="tk">&lt;input</span> <span class="ta">class</span>=<span class="ts">"form-input"</span><span class="tk">&gt;</span>            <span class="tc">&lt;!-- 38px (default) --&gt;</span>
+<span class="tk">&lt;input</span> <span class="ta">class</span>=<span class="ts">"form-input form-input-lg"</span><span class="tk">&gt;</span>  <span class="tc">&lt;!-- 46px --&gt;</span>
+
+<span class="tc">&lt;!-- Textarea --&gt;</span>
+<span class="tk">&lt;textarea</span> <span class="ta">class</span>=<span class="ts">"form-textarea"</span> <span class="ta">rows</span>=<span class="ts">"3"</span><span class="tk">&gt;&lt;/textarea&gt;</span></pre>
+    </div>
+  </div>
+</section>
+
+<!-- ─── SELECTS ─── -->
+<section class="doc-section" id="selects">
+  <div class="doc-section-title">Selects</div>
+  <p class="doc-section-sub">Clase <code>.form-select</code>. Flecha personalizada, no la del navegador.</p>
+
+  <div class="demo-area">
+    <div class="field-grid">
+      <div class="field">
+        <label class="form-label">Área</label>
+        <select class="form-select">
+          <option value="">Seleccionar área…</option>
+          <option>Tecnología</option>
+          <option>Operaciones</option>
+          <option>Producción</option>
+          <option>Administrativo</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="form-label">Turno</label>
+        <select class="form-select">
+          <option>Matutino (06:00–14:00)</option>
+          <option>Vespertino (14:00–22:00)</option>
+          <option>Nocturno (22:00–06:00)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="form-label">Tamaño pequeño</label>
+        <select class="form-select form-select-sm">
+          <option>Todos los estados</option>
+          <option>Completa</option>
+          <option>Incompleta</option>
+          <option>Ausente</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="form-label">Deshabilitado</label>
+        <select class="form-select" disabled>
+          <option>No disponible</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="doc-card">
+    <div class="doc-card-header">HTML</div>
+    <div class="doc-card-body">
+      <pre><span class="tk">&lt;select</span> <span class="ta">class</span>=<span class="ts">"form-select"</span><span class="tk">&gt;</span>
+  <span class="tk">&lt;option</span> <span class="ta">value</span>=<span class="ts">""</span><span class="tk">&gt;</span>Seleccionar…<span class="tk">&lt;/option&gt;</span>
+  <span class="tk">&lt;option</span><span class="tk">&gt;</span>Opción A<span class="tk">&lt;/option&gt;</span>
+<span class="tk">&lt;/select&gt;</span>
+
+<span class="tc">&lt;!-- Tamaños --&gt;</span>
+<span class="tk">&lt;select</span> <span class="ta">class</span>=<span class="ts">"form-select form-select-sm"</span><span class="tk">&gt;</span>...<span class="tk">&lt;/select&gt;</span>
+<span class="tk">&lt;select</span> <span class="ta">class</span>=<span class="ts">"form-select form-select-lg"</span><span class="tk">&gt;</span>...<span class="tk">&lt;/select&gt;</span></pre>
+    </div>
+  </div>
+</section>
+
+<!-- ─── MULTISELECT ─── -->
+<section class="doc-section" id="multiselect">
+  <div class="doc-section-title">Multiselect con tags</div>
+  <p class="doc-section-sub">El plugin <code>multiselect.js</code> convierte un <code>&lt;select multiple&gt;</code> en un campo con chips. Las selecciones quedan visibles como tags dentro del input.</p>
+
+  <div class="demo-area">
+    <div class="field">
+      <label class="form-label">Contratistas del lote</label>
+      <select multiple data-multiselect data-placeholder="Seleccionar contratistas…" id="ms-demo1">
+        <option value="1">Manuel Rodríguez — TechCorp</option>
+        <option value="2" selected>Alejandro Torres — Constructora ABC</option>
+        <option value="3">Carmen López — Servicios Globales</option>
+        <option value="4" selected>Sofía Martínez — Operaciones SA</option>
+        <option value="5">Roberto Hernández — Industrial MX</option>
+        <option value="6">Lucía Fernández — Dev Studio</option>
+      </select>
+      <span class="form-hint">Puedes buscar escribiendo en el campo. Haz clic en × para quitar.</span>
+    </div>
+    <div class="field">
+      <label class="form-label">Áreas (máximo 2)</label>
+      <select multiple data-multiselect data-placeholder="Máximo 2 áreas…" data-max="2">
+        <option value="tec">Tecnología</option>
+        <option value="ops">Operaciones</option>
+        <option value="adm">Administrativo</option>
+        <option value="pro">Producción</option>
+        <option value="rrhh">RRHH</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="doc-card">
+    <div class="doc-card-header">HTML — auto-inicialización con data-multiselect</div>
+    <div class="doc-card-body">
+      <pre><span class="tc">&lt;!-- Se inicializa solo al cargar la página --&gt;</span>
+<span class="tk">&lt;select</span>
+  <span class="ta">multiple</span>
+  <span class="ta">data-multiselect</span>
+  <span class="ta">data-placeholder</span>=<span class="ts">"Seleccionar opciones…"</span>
+  <span class="ta">data-max</span>=<span class="ts">"5"</span>
+  <span class="ta">name</span>=<span class="ts">"contratistas[]"</span>
+<span class="tk">&gt;</span>
+  <span class="tk">&lt;option</span> <span class="ta">value</span>=<span class="ts">"1"</span><span class="tk">&gt;</span>Manuel Rodríguez<span class="tk">&lt;/option&gt;</span>
+  <span class="tk">&lt;option</span> <span class="ta">value</span>=<span class="ts">"2"</span> <span class="ta">selected</span><span class="tk">&gt;</span>Alejandro Torres<span class="tk">&lt;/option&gt;</span>
+<span class="tk">&lt;/select&gt;</span>
+
+<span class="tc">&lt;!-- O inicializar manualmente por JS --&gt;</span>
+<span class="tk">&lt;script&gt;</span>
+  initMultiselect('#mi-select', { placeholder: 'Elegir…', max: 3 });
+<span class="tk">&lt;/script&gt;</span></pre>
+    </div>
+  </div>
+
+  <div class="doc-card">
+    <div class="doc-card-header">API JavaScript del multiselect</div>
+    <div class="doc-card-body">
+      <pre><span class="tc">// Leer valores seleccionados</span>
+document.querySelector('#mi-select').msGetValues();
+<span class="tc">// → ['1', '3', '5']</span>
+
+<span class="tc">// Limpiar todo</span>
+document.querySelector('#mi-select').msClearAll();
+
+<span class="tc">// Seleccionar todo</span>
+document.querySelector('#mi-select').msSelectAll();
+
+<span class="tc">// Establecer valores programáticamente</span>
+document.querySelector('#mi-select').msSetValues(['1','2']);
+
+<span class="tc">// Escuchar cambios (igual que un select normal)</span>
+document.querySelector('#mi-select').addEventListener('change', e => {
+  console.log(e.target.msGetValues());
+});</pre>
+    </div>
+  </div>
+
+  <div class="doc-card">
+    <div class="doc-card-header">Atributos data- disponibles</div>
+    <div class="doc-card-body">
+      <table class="ref-table">
+        <thead><tr><th>Atributo</th><th>Default</th><th>Descripción</th></tr></thead>
+        <tbody>
+          <tr><td>data-multiselect</td><td>—</td><td class="desc">Marca el select para auto-inicializar</td></tr>
+          <tr><td>data-placeholder</td><td>"Seleccionar opciones…"</td><td class="desc">Texto cuando no hay nada seleccionado</td></tr>
+          <tr><td>data-max</td><td>0 (sin límite)</td><td class="desc">Máximo de opciones seleccionables</td></tr>
+          <tr><td>data-searchable</td><td>"true"</td><td class="desc">false = deshabilita la búsqueda</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="alert alert-info">
+    <span class="alert-icon">ℹ️</span>
+    <span>El <code>&lt;select&gt;</code> original permanece oculto pero funcional. Sus valores se actualizan en tiempo real → compatible con formularios Rails (<code>name="campo[]"</code>) y con <code>form.submit()</code>.</span>
+  </div>
+</section>
+
+<!-- ─── CHECKBOX / RADIO ─── -->
+<section class="doc-section" id="checks">
+  <div class="doc-section-title">Checkbox y Radio</div>
+  <p class="doc-section-sub">Controles personalizados sin JS. Solo HTML + CSS.</p>
+
+  <div class="demo-area">
+    <div style="display:flex; gap:2rem; flex-wrap:wrap;">
+      <div style="display:flex; flex-direction:column; gap:.6rem;">
+        <label class="form-check">
+          <input type="checkbox" checked />
+          <div class="form-check-box"></div>
+          <span class="form-check-label">Aprobado por Jefe de Área <span>Validación nivel 1</span></span>
+        </label>
+        <label class="form-check">
+          <input type="checkbox" />
+          <div class="form-check-box"></div>
+          <span class="form-check-label">Aprobado por RRHH</span>
+        </label>
+        <label class="form-check">
+          <input type="checkbox" disabled />
+          <div class="form-check-box"></div>
+          <span class="form-check-label" style="color:#94a3b8;">Deshabilitado</span>
+        </label>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:.6rem;">
+        <label class="form-check form-check-radio">
+          <input type="radio" name="tipo" value="contratista" checked />
+          <div class="form-check-box"></div>
+          <span class="form-check-label">Contratista externo</span>
+        </label>
+        <label class="form-check form-check-radio">
+          <input type="radio" name="tipo" value="empleado" />
+          <div class="form-check-box"></div>
+          <span class="form-check-label">Empleado interno</span>
+        </label>
+        <label class="form-check form-check-radio">
+          <input type="radio" name="tipo" value="temporal" />
+          <div class="form-check-box"></div>
+          <span class="form-check-label">Temporal / eventual</span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <div class="doc-card">
+    <div class="doc-card-header">HTML</div>
+    <div class="doc-card-body">
+      <pre><span class="tc">&lt;!-- Checkbox --&gt;</span>
+<span class="tk">&lt;label</span> <span class="ta">class</span>=<span class="ts">"form-check"</span><span class="tk">&gt;</span>
+  <span class="tk">&lt;input</span> <span class="ta">type</span>=<span class="ts">"checkbox"</span><span class="tk">&gt;</span>
+  <span class="tk">&lt;div</span> <span class="ta">class</span>=<span class="ts">"form-check-box"</span><span class="tk">&gt;&lt;/div&gt;</span>
+  <span class="tk">&lt;span</span> <span class="ta">class</span>=<span class="ts">"form-check-label"</span><span class="tk">&gt;</span>Aprobado<span class="tk">&lt;/span&gt;</span>
+<span class="tk">&lt;/label&gt;</span>
+
+<span class="tc">&lt;!-- Radio --&gt;</span>
+<span class="tk">&lt;label</span> <span class="ta">class</span>=<span class="ts">"form-check form-check-radio"</span><span class="tk">&gt;</span>
+  <span class="tk">&lt;input</span> <span class="ta">type</span>=<span class="ts">"radio"</span> <span class="ta">name</span>=<span class="ts">"tipo"</span> <span class="ta">value</span>=<span class="ts">"contratista"</span><span class="tk">&gt;</span>
+  <span class="tk">&lt;div</span> <span class="ta">class</span>=<span class="ts">"form-check-box"</span><span class="tk">&gt;&lt;/div&gt;</span>
+  <span class="tk">&lt;span</span> <span class="ta">class</span>=<span class="ts">"form-check-label"</span><span class="tk">&gt;</span>Contratista externo<span class="tk">&lt;/span&gt;</span>
+<span class="tk">&lt;/label&gt;</span></pre>
+    </div>
+  </div>
+</section>
+
+<!-- ─── SWITCH ─── -->
+<section class="doc-section" id="switch">
+  <div class="doc-section-title">Switch / Toggle</div>
+  <p class="doc-section-sub">Para activar/desactivar opciones. Compatible con checkbox HTML.</p>
+
+  <div class="demo-area" style="display:flex; gap:2rem; flex-wrap:wrap; align-items:center;">
+    <label class="form-switch">
+      <input type="checkbox" checked />
+      <div class="switch-track"><div class="switch-thumb"></div></div>
+      <span class="switch-label">Recordarme</span>
+    </label>
+    <label class="form-switch">
+      <input type="checkbox" />
+      <div class="switch-track"><div class="switch-thumb"></div></div>
+      <span class="switch-label">Notificaciones</span>
+    </label>
+    <label class="form-switch">
+      <input type="checkbox" checked />
+      <div class="switch-track"><div class="switch-thumb"></div></div>
+      <span class="switch-label">Facturación automática</span>
+    </label>
+  </div>
+
+  <div class="doc-card">
+    <div class="doc-card-header">HTML</div>
+    <div class="doc-card-body">
+      <pre><span class="tk">&lt;label</span> <span class="ta">class</span>=<span class="ts">"form-switch"</span><span class="tk">&gt;</span>
+  <span class="tk">&lt;input</span> <span class="ta">type</span>=<span class="ts">"checkbox"</span> <span class="ta">name</span>=<span class="ts">"facturacion_auto"</span><span class="tk">&gt;</span>
+  <span class="tk">&lt;div</span> <span class="ta">class</span>=<span class="ts">"switch-track"</span><span class="tk">&gt;&lt;div</span> <span class="ta">class</span>=<span class="ts">"switch-thumb"</span><span class="tk">&gt;&lt;/div&gt;&lt;/div&gt;</span>
+  <span class="tk">&lt;span</span> <span class="ta">class</span>=<span class="ts">"switch-label"</span><span class="tk">&gt;</span>Facturación automática<span class="tk">&lt;/span&gt;</span>
+<span class="tk">&lt;/label&gt;</span></pre>
+    </div>
+  </div>
+</section>
+
+<!-- ─── VALIDACIÓN ─── -->
+<section class="doc-section" id="validacion">
+  <div class="doc-section-title">Validación y estados de error</div>
+  <p class="doc-section-sub">Agrega <code>.is-error</code> o <code>.is-success</code> al input. Muestra mensajes con <code>.form-error-msg</code>.</p>
+
+  <div class="demo-area">
+    <div class="field-grid">
+      <div class="field">
+        <label class="form-label">RFC — Error</label>
+        <input type="text" class="form-input is-error" value="ROCM123" />
+        <div class="form-error-msg">
+          <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+          Formato de RFC inválido
+        </div>
+      </div>
+      <div class="field">
+        <label class="form-label">Correo — Válido</label>
+        <input type="email" class="form-input is-success" value="manuel@techcorp.mx" />
+        <div class="form-success-msg">
+          <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+          Correo verificado
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="doc-card">
+    <div class="doc-card-header">HTML + JS (Rails)</div>
+    <div class="doc-card-body">
+      <pre><span class="tc">&lt;!-- HTML con clase de estado --&gt;</span>
+<span class="tk">&lt;input</span> <span class="ta">class</span>=<span class="ts">"form-input is-error"</span> <span class="ta">value</span>=<span class="ts">"ROCM123"</span><span class="tk">&gt;</span>
+<span class="tk">&lt;div</span> <span class="ta">class</span>=<span class="ts">"form-error-msg"</span><span class="tk">&gt;</span>Formato de RFC inválido<span class="tk">&lt;/div&gt;</span>
+
+<span class="tc"># ERB con errores de modelo Rails</span>
+<span class="tv">&lt;% if</span> @contratista.errors[:rfc].any? <span class="tv">%&gt;</span>
+  <span class="tk">&lt;input</span> <span class="ta">class</span>=<span class="ts">"form-input is-error"</span> <span class="ta">value</span>=<span class="ts">"&lt;%= @contratista.rfc %&gt;"</span><span class="tk">&gt;</span>
+  <span class="tk">&lt;div</span> <span class="ta">class</span>=<span class="ts">"form-error-msg"</span><span class="tk">&gt;</span>&lt;%= @contratista.errors[:rfc].first %&gt;<span class="tk">&lt;/div&gt;</span>
+<span class="tv">&lt;% else %&gt;</span>
+  <span class="tk">&lt;input</span> <span class="ta">class</span>=<span class="ts">"form-input is-success"</span> <span class="ta">value</span>=<span class="ts">"&lt;%= @contratista.rfc %&gt;"</span><span class="tk">&gt;</span>
+<span class="tv">&lt;% end %&gt;</span></pre>
+    </div>
+  </div>
+</section>
+
+<hr class="doc-div" />
+
+<!-- ─── PROGRESS ─── -->
+<section class="doc-section" id="progress">
+  <div class="doc-section-title">Barras de progreso</div>
+  <p class="doc-section-sub">Para mostrar avance de procesos: lotes, aprobaciones, sincronización, carga de facturas.</p>
+
+  <div class="demo-area">
+    <div class="demo-progress-grid">
+      <div class="progress-wrap">
+        <div class="progress-header">
+          <span class="progress-label">Facturas procesadas</span>
+          <span class="progress-value">198 / 247</span>
+        </div>
+        <div class="progress-track">
+          <div class="progress-bar" style="width:80%;"></div>
+        </div>
+      </div>
+      <div class="progress-wrap">
+        <div class="progress-header">
+          <span class="progress-label">Aprobaciones completadas</span>
+          <span class="progress-value">62%</span>
+        </div>
+        <div class="progress-track">
+          <div class="progress-bar pb-success" style="width:62%;"></div>
+        </div>
+      </div>
+      <div class="progress-wrap">
+        <div class="progress-header">
+          <span class="progress-label">Marcas con error</span>
+          <span class="progress-value">12%</span>
+        </div>
+        <div class="progress-track">
+          <div class="progress-bar pb-danger" style="width:12%;"></div>
+        </div>
+      </div>
+      <div class="progress-wrap">
+        <div class="progress-header">
+          <span class="progress-label">Cargando datos…</span>
+          <span class="progress-value" style="color:#1d6fb8;">Procesando</span>
+        </div>
+        <div class="progress-track progress-indeterminate">
+          <div class="progress-bar"></div>
+        </div>
+      </div>
+      <div class="progress-wrap">
+        <div class="progress-header">
+          <span class="progress-label">Horas aprobadas del período</span>
+          <span class="progress-value">1,842 / 2,100 hrs</span>
+        </div>
+        <div class="progress-track pt-lg">
+          <div class="progress-bar pb-cyan" style="width:87%;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="doc-card">
+    <div class="doc-card-header">HTML</div>
+    <div class="doc-card-body">
+      <pre><span class="tc">&lt;!-- Barra básica --&gt;</span>
+<span class="tk">&lt;div</span> <span class="ta">class</span>=<span class="ts">"progress-wrap"</span><span class="tk">&gt;</span>
+  <span class="tk">&lt;div</span> <span class="ta">class</span>=<span class="ts">"progress-header"</span><span class="tk">&gt;</span>
+    <span class="tk">&lt;span</span> <span class="ta">class</span>=<span class="ts">"progress-label"</span><span class="tk">&gt;</span>Facturas procesadas<span class="tk">&lt;/span&gt;</span>
+    <span class="tk">&lt;span</span> <span class="ta">class</span>=<span class="ts">"progress-value"</span><span class="tk">&gt;</span>198 / 247<span class="tk">&lt;/span&gt;</span>
+  <span class="tk">&lt;/div&gt;</span>
+  <span class="tk">&lt;div</span> <span class="ta">class</span>=<span class="ts">"progress-track"</span><span class="tk">&gt;</span>
+    <span class="tk">&lt;div</span> <span class="ta">class</span>=<span class="ts">"progress-bar"</span> <span class="ta">style</span>=<span class="ts">"width:80%"</span><span class="tk">&gt;&lt;/div&gt;</span>
+  <span class="tk">&lt;/div&gt;</span>
+<span class="tk">&lt;/div&gt;</span>
+
+<span class="tc">&lt;!-- Colores: pb-success | pb-warning | pb-danger | pb-purple | pb-cyan --&gt;</span>
+<span class="tc">&lt;!-- Tamaños: pt-sm (4px) | default (8px) | pt-lg (14px) --&gt;</span>
+<span class="tc">&lt;!-- Indeterminada: agregar clase progress-indeterminate al .progress-track --&gt;</span>
+
+<span class="tc"># ERB dinámico</span>
+<span class="tk">&lt;div</span> <span class="ta">class</span>=<span class="ts">"progress-bar"</span>
+     <span class="ta">style</span>=<span class="ts">"width: &lt;%= (@aprobadas * 100.0 / @total).round %&gt;%"</span><span class="tk">&gt;</span>
+<span class="tk">&lt;/div&gt;</span></pre>
+    </div>
+  </div>
+</section>
+
+<!-- ─── STEPS ─── -->
+<section class="doc-section" id="progress-steps">
+  <div class="doc-section-title">Barra de pasos del flujo</div>
+  <p class="doc-section-sub">Muestra en qué etapa va una factura: desde marcas hasta CFDI.</p>
+
+  <div class="demo-area">
+    <div class="step-progress">
+      <div class="step-progress-item done">
+        <div class="step-circle">✓</div>
+        <div class="step-label">Marcas<br>descargadas</div>
+      </div>
+      <div class="step-progress-item done">
+        <div class="step-circle">✓</div>
+        <div class="step-label">Jornadas<br>calculadas</div>
+      </div>
+      <div class="step-progress-item active">
+        <div class="step-circle">3</div>
+        <div class="step-label">Aprobación<br>supervisor</div>
+      </div>
+      <div class="step-progress-item">
+        <div class="step-circle">4</div>
+        <div class="step-label">Pre<br>Factura</div>
+      </div>
+      <div class="step-progress-item">
+        <div class="step-circle">5</div>
+        <div class="step-label">CFDI<br>emitido</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="doc-card">
+    <div class="doc-card-header">HTML — clases de estado: done | active | (ninguna)</div>
+    <div class="doc-card-body">
+      <pre><span class="tk">&lt;div</span> <span class="ta">class</span>=<span class="ts">"step-progress"</span><span class="tk">&gt;</span>
+  <span class="tk">&lt;div</span> <span class="ta">class</span>=<span class="ts">"step-progress-item done"</span><span class="tk">&gt;</span>
+    <span class="tk">&lt;div</span> <span class="ta">class</span>=<span class="ts">"step-circle"</span><span class="tk">&gt;</span>✓<span class="tk">&lt;/div&gt;</span>
+    <span class="tk">&lt;div</span> <span class="ta">class</span>=<span class="ts">"step-label"</span><span class="tk">&gt;</span>Marcas<span class="tk">&lt;/div&gt;</span>
+  <span class="tk">&lt;/div&gt;</span>
+  <span class="tk">&lt;div</span> <span class="ta">class</span>=<span class="ts">"step-progress-item active"</span><span class="tk">&gt;</span>
+    <span class="tk">&lt;div</span> <span class="ta">class</span>=<span class="ts">"step-circle"</span><span class="tk">&gt;</span>2<span class="tk">&lt;/div&gt;</span>
+    <span class="tk">&lt;div</span> <span class="ta">class</span>=<span class="ts">"step-label"</span><span class="tk">&gt;</span>Aprobación<span class="tk">&lt;/div&gt;</span>
+  <span class="tk">&lt;/div&gt;</span>
+  <span class="tk">&lt;div</span> <span class="ta">class</span>=<span class="ts">"step-progress-item"</span><span class="tk">&gt;</span>
+    <span class="tk">&lt;div</span> <span class="ta">class</span>=<span class="ts">"step-circle"</span><span class="tk">&gt;</span>3<span class="tk">&lt;/div&gt;</span>
+    <span class="tk">&lt;div</span> <span class="ta">class</span>=<span class="ts">"step-label"</span><span class="tk">&gt;</span>CFDI<span class="tk">&lt;/div&gt;</span>
+  <span class="tk">&lt;/div&gt;</span>
+<span class="tk">&lt;/div&gt;</span></pre>
+    </div>
+  </div>
+</section>
+
+<!-- ─── RING ─── -->
+<section class="doc-section" id="progress-ring">
+  <div class="doc-section-title">Progreso circular</div>
+  <p class="doc-section-sub">Para KPI compactos en tarjetas o dashboards. Controlado con <code>stroke-dashoffset</code>.</p>
+
+  <div class="demo-area" style="display:flex; gap:1.5rem; flex-wrap:wrap; align-items:center;">
+    <div style="text-align:center;">
+      <div class="ring-progress">
+        <svg viewBox="0 0 44 44" width="48" height="48">
+          <circle class="ring-track" cx="22" cy="22" r="20"/>
+          <circle class="ring-fill rf-success" cx="22" cy="22" r="20" style="stroke-dashoffset:25;"/>
+        </svg>
+        <span class="ring-label">80%</span>
+      </div>
+      <div style="font-size:.7rem; color:#64748b; margin-top:.3rem;">Completas</div>
+    </div>
+    <div style="text-align:center;">
+      <div class="ring-progress">
+        <svg viewBox="0 0 44 44" width="48" height="48">
+          <circle class="ring-track" cx="22" cy="22" r="20"/>
+          <circle class="ring-fill rf-warning" cx="22" cy="22" r="20" style="stroke-dashoffset:76;"/>
+        </svg>
+        <span class="ring-label">40%</span>
+      </div>
+      <div style="font-size:.7rem; color:#64748b; margin-top:.3rem;">Pendientes</div>
+    </div>
+    <div style="text-align:center;">
+      <div class="ring-progress">
+        <svg viewBox="0 0 44 44" width="48" height="48">
+          <circle class="ring-track" cx="22" cy="22" r="20"/>
+          <circle class="ring-fill rf-danger" cx="22" cy="22" r="20" style="stroke-dashoffset:113;"/>
+        </svg>
+        <span class="ring-label">10%</span>
+      </div>
+      <div style="font-size:.7rem; color:#64748b; margin-top:.3rem;">Con error</div>
+    </div>
+  </div>
+
+  <div class="doc-card">
+    <div class="doc-card-header">HTML + fórmula de dashoffset</div>
+    <div class="doc-card-body">
+      <pre><span class="tk">&lt;div</span> <span class="ta">class</span>=<span class="ts">"ring-progress"</span><span class="tk">&gt;</span>
+  <span class="tk">&lt;svg</span> <span class="ta">viewBox</span>=<span class="ts">"0 0 44 44"</span> <span class="ta">width</span>=<span class="ts">"48"</span> <span class="ta">height</span>=<span class="ts">"48"</span><span class="tk">&gt;</span>
+    <span class="tk">&lt;circle</span> <span class="ta">class</span>=<span class="ts">"ring-track"</span> <span class="ta">cx</span>=<span class="ts">"22"</span> <span class="ta">cy</span>=<span class="ts">"22"</span> <span class="ta">r</span>=<span class="ts">"20"</span><span class="tk">/&gt;</span>
+    <span class="tk">&lt;circle</span> <span class="ta">class</span>=<span class="ts">"ring-fill rf-success"</span> <span class="ta">cx</span>=<span class="ts">"22"</span> <span class="ta">cy</span>=<span class="ts">"22"</span> <span class="ta">r</span>=<span class="ts">"20"</span>
+            <span class="ta">style</span>=<span class="ts">"stroke-dashoffset: 25"</span><span class="tk">/&gt;</span>  <span class="tc">&lt;!-- 80% --&gt;</span>
+  <span class="tk">&lt;/svg&gt;</span>
+  <span class="tk">&lt;span</span> <span class="ta">class</span>=<span class="ts">"ring-label"</span><span class="tk">&gt;</span>80%<span class="tk">&lt;/span&gt;</span>
+<span class="tk">&lt;/div&gt;</span>
+
+<span class="tc"># Fórmula ERB: dashoffset = 126 * (1 - porcentaje/100)</span>
+<span class="ta">style</span>=<span class="ts">"stroke-dashoffset: &lt;%= (126 * (1 - @pct / 100.0)).round(1) %&gt;"</span>
+
+<span class="tc"># Variantes de color: rf-success | rf-warning | rf-danger | (azul por default)</span></pre>
+    </div>
+  </div>
+</section>
+
+<!-- ─── SKELETON ─── -->
+<section class="doc-section" id="skeleton">
+  <div class="doc-section-title">Skeleton loading</div>
+  <p class="doc-section-sub">Clase <code>.skeleton</code> — shimmer animado mientras cargan los datos.</p>
+
+  <div class="demo-area" style="display:flex; flex-direction:column; gap:.65rem;">
+    <div class="skeleton" style="height:14px; width:40%; border-radius:4px;">&nbsp;</div>
+    <div class="skeleton" style="height:14px; width:70%; border-radius:4px;">&nbsp;</div>
+    <div class="skeleton" style="height:14px; width:55%; border-radius:4px;">&nbsp;</div>
+    <div style="display:flex; gap:.75rem; margin-top:.25rem;">
+      <div class="skeleton" style="width:32px;height:32px;border-radius:50%;">&nbsp;</div>
+      <div style="flex:1;display:flex;flex-direction:column;gap:.4rem;">
+        <div class="skeleton" style="height:12px;width:60%;border-radius:4px;">&nbsp;</div>
+        <div class="skeleton" style="height:12px;width:40%;border-radius:4px;">&nbsp;</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="doc-card">
+    <div class="doc-card-header">Uso</div>
+    <div class="doc-card-body">
+      <pre><span class="tc">&lt;!-- Agregar .skeleton mientras cargan los datos --&gt;</span>
+<span class="tk">&lt;td&gt;&lt;span</span> <span class="ta">class</span>=<span class="ts">"skeleton"</span> <span class="ta">style</span>=<span class="ts">"display:block;height:14px;width:80px;"</span><span class="tk">&gt;&lt;/span&gt;&lt;/td&gt;</span>
+
+<span class="tc">// Quitar con JS cuando lleguen los datos</span>
+element.classList.remove('skeleton');
+element.textContent = data.nombre;</pre>
+    </div>
+  </div>
+</section>
+
+<hr class="doc-div" />
+
+<!-- ─── BADGES ─── -->
+<section class="doc-section" id="badges">
+  <div class="doc-section-title">Badges y estados</div>
+  <p class="doc-section-sub">Para marcaciones y facturas.</p>
+
+  <div class="demo-area" style="display:flex; gap:.5rem; flex-wrap:wrap;">
+    <span class="badge badge-pagado"><span class="badge-dot"></span>Pagado / Completa</span>
+    <span class="badge badge-pendiente"><span class="badge-dot"></span>Pendiente / Incompleta</span>
+    <span class="badge badge-vencido"><span class="badge-dot"></span>Vencido / Ausente</span>
+    <span class="badge badge-borrador"><span class="badge-dot"></span>Borrador / Manual</span>
+  </div>
+
+  <div class="doc-card">
+    <div class="doc-card-header">HTML</div>
+    <div class="doc-card-body">
+      <pre><span class="tc">&lt;!-- Para facturas (styles.css) --&gt;</span>
+<span class="tk">&lt;span</span> <span class="ta">class</span>=<span class="ts">"badge badge-pagado"</span><span class="tk">&gt;&lt;span</span> <span class="ta">class</span>=<span class="ts">"badge-dot"</span><span class="tk">&gt;&lt;/span&gt;</span>Pagado<span class="tk">&lt;/span&gt;</span>
+<span class="tk">&lt;span</span> <span class="ta">class</span>=<span class="ts">"badge badge-pendiente"</span><span class="tk">&gt;&lt;span</span> <span class="ta">class</span>=<span class="ts">"badge-dot"</span><span class="tk">&gt;&lt;/span&gt;</span>Pendiente<span class="tk">&lt;/span&gt;</span>
+<span class="tk">&lt;span</span> <span class="ta">class</span>=<span class="ts">"badge badge-vencido"</span><span class="tk">&gt;&lt;span</span> <span class="ta">class</span>=<span class="ts">"badge-dot"</span><span class="tk">&gt;&lt;/span&gt;</span>Vencido<span class="tk">&lt;/span&gt;</span>
+<span class="tk">&lt;span</span> <span class="ta">class</span>=<span class="ts">"badge badge-borrador"</span><span class="tk">&gt;&lt;span</span> <span class="ta">class</span>=<span class="ts">"badge-dot"</span><span class="tk">&gt;&lt;/span&gt;</span>Borrador<span class="tk">&lt;/span&gt;</span>
+
+<span class="tc">&lt;!-- Para marcaciones (Marcaciones.html) --&gt;</span>
+<span class="tk">&lt;span</span> <span class="ta">class</span>=<span class="ts">"badge b-completa"</span><span class="tk">&gt;&lt;span</span> <span class="ta">class</span>=<span class="ts">"badge-dot"</span><span class="tk">&gt;&lt;/span&gt;</span>Completa<span class="tk">&lt;/span&gt;</span>
+<span class="tk">&lt;span</span> <span class="ta">class</span>=<span class="ts">"badge b-incompleta"</span><span class="tk">&gt;&lt;span</span> <span class="ta">class</span>=<span class="ts">"badge-dot"</span><span class="tk">&gt;&lt;/span&gt;</span>Incompleta<span class="tk">&lt;/span&gt;</span>
+<span class="tk">&lt;span</span> <span class="ta">class</span>=<span class="ts">"badge b-ausente"</span><span class="tk">&gt;&lt;span</span> <span class="ta">class</span>=<span class="ts">"badge-dot"</span><span class="tk">&gt;&lt;/span&gt;</span>Ausente<span class="tk">&lt;/span&gt;</span>
+<span class="tk">&lt;span</span> <span class="ta">class</span>=<span class="ts">"badge b-manual"</span><span class="tk">&gt;&lt;span</span> <span class="ta">class</span>=<span class="ts">"badge-dot"</span><span class="tk">&gt;&lt;/span&gt;</span>Manual<span class="tk">&lt;/span&gt;</span></pre>
+    </div>
+  </div>
+</section>
+
+<!-- ─── BOTONES ─── -->
+<section class="doc-section" id="botones">
+  <div class="doc-section-title">Botones</div>
+  <p class="doc-section-sub">Clase base <code>.btn</code> + modificador. Disponibles en <code>styles.css</code>.</p>
+
+  <div class="demo-area" style="display:flex; gap:.5rem; flex-wrap:wrap; align-items:center;">
+    <button class="btn btn-primary">Guardar</button>
+    <button class="btn btn-ghost">Cancelar</button>
+    <button class="btn btn-success">Aprobar</button>
+    <button class="btn btn-danger">Eliminar</button>
+    <button class="btn btn-primary btn-sm">Pequeño</button>
+    <button class="btn btn-ghost btn-sm">Secundario sm</button>
+  </div>
+
+  <div class="doc-card">
+    <div class="doc-card-header">HTML</div>
+    <div class="doc-card-body">
+      <pre><span class="tk">&lt;button</span> <span class="ta">class</span>=<span class="ts">"btn btn-primary"</span><span class="tk">&gt;</span>Guardar<span class="tk">&lt;/button&gt;</span>
+<span class="tk">&lt;button</span> <span class="ta">class</span>=<span class="ts">"btn btn-ghost"</span><span class="tk">&gt;</span>Cancelar<span class="tk">&lt;/button&gt;</span>
+<span class="tk">&lt;button</span> <span class="ta">class</span>=<span class="ts">"btn btn-success"</span><span class="tk">&gt;</span>Aprobar<span class="tk">&lt;/button&gt;</span>
+<span class="tk">&lt;button</span> <span class="ta">class</span>=<span class="ts">"btn btn-danger"</span><span class="tk">&gt;</span>Eliminar<span class="tk">&lt;/button&gt;</span>
+<span class="tk">&lt;button</span> <span class="ta">class</span>=<span class="ts">"btn btn-primary btn-sm"</span><span class="tk">&gt;</span>Pequeño<span class="tk">&lt;/button&gt;</span></pre>
+    </div>
+  </div>
+</section>
+
+<!-- ─── TABLAS ─── -->
+<section class="doc-section" id="tablas">
+  <div class="doc-section-title">Tablas</div>
+  <p class="doc-section-sub">Estructura estándar. Las filas <code>tbody tr</code> animan automáticamente con stagger.</p>
+  <div class="doc-card">
+    <div class="doc-card-header">HTML</div>
+    <div class="doc-card-body">
+      <pre><span class="tk">&lt;div</span> <span class="ta">class</span>=<span class="ts">"section-card"</span><span class="tk">&gt;</span>
+  <span class="tk">&lt;div</span> <span class="ta">class</span>=<span class="ts">"section-header"</span><span class="tk">&gt;</span>
+    <span class="tk">&lt;div</span> <span class="ta">class</span>=<span class="ts">"section-title"</span><span class="tk">&gt;</span>Marcaciones<span class="tk">&lt;/div&gt;</span>
+  <span class="tk">&lt;/div&gt;</span>
+  <span class="tk">&lt;table</span> <span class="ta">class</span>=<span class="ts">"data-table"</span><span class="tk">&gt;</span>
+    <span class="tk">&lt;thead&gt;&lt;tr&gt;</span>
+      <span class="tk">&lt;th&gt;</span>Trabajador<span class="tk">&lt;/th&gt;</span>
+      <span class="tk">&lt;th&gt;</span>Entrada<span class="tk">&lt;/th&gt;</span>
+      <span class="tk">&lt;th</span> <span class="ta">class</span>=<span class="ts">"right"</span><span class="tk">&gt;</span>Horas<span class="tk">&lt;/th&gt;</span>
+    <span class="tk">&lt;/tr&gt;&lt;/thead&gt;</span>
+    <span class="tk">&lt;tbody&gt;</span>
+      <span class="tk">&lt;tr&gt;</span>
+        <span class="tk">&lt;td&gt;</span>Alejandro Torres<span class="tk">&lt;/td&gt;</span>
+        <span class="tk">&lt;td</span> <span class="ta">class</span>=<span class="ts">"font-mono"</span><span class="tk">&gt;</span>07:02<span class="tk">&lt;/td&gt;</span>
+        <span class="tk">&lt;td</span> <span class="ta">class</span>=<span class="ts">"right font-mono font-bold"</span><span class="tk">&gt;</span>9.05 h<span class="tk">&lt;/td&gt;</span>
+      <span class="tk">&lt;/tr&gt;</span>
+    <span class="tk">&lt;/tbody&gt;</span>
+  <span class="tk">&lt;/table&gt;</span>
+<span class="tk">&lt;/div&gt;</span></pre>
+    </div>
+  </div>
+</section>
+
+<!-- ─── KPI ─── -->
+<section class="doc-section" id="kpi">
+  <div class="doc-section-title">Tarjetas KPI</div>
+  <p class="doc-section-sub">Variantes: <code>kpi-primary</code> · <code>kpi-success</code> · <code>kpi-warning</code> · <code>kpi-pending</code></p>
+  <div class="doc-card">
+    <div class="doc-card-header">HTML</div>
+    <div class="doc-card-body">
+      <pre><span class="tk">&lt;div</span> <span class="ta">class</span>=<span class="ts">"kpi-grid"</span><span class="tk">&gt;</span>
+  <span class="tk">&lt;div</span> <span class="ta">class</span>=<span class="ts">"kpi-card kpi-primary"</span><span class="tk">&gt;</span>
+    <span class="tk">&lt;div</span> <span class="ta">class</span>=<span class="ts">"kpi-label"</span><span class="tk">&gt;</span>Total facturado<span class="tk">&lt;/div&gt;</span>
+    <span class="tk">&lt;div</span> <span class="ta">class</span>=<span class="ts">"kpi-value"</span><span class="tk">&gt;</span>$&lt;%= number_with_delimiter(@total) %&gt;<span class="tk">&lt;/div&gt;</span>
+    <span class="tk">&lt;div</span> <span class="ta">class</span>=<span class="ts">"kpi-delta up"</span><span class="tk">&gt;</span>+12% vs mes anterior<span class="tk">&lt;/div&gt;</span>
+  <span class="tk">&lt;/div&gt;</span>
+<span class="tk">&lt;/div&gt;</span></pre>
+    </div>
+  </div>
+</section>
+
+<hr class="doc-div" />
+
+<!-- ─── ANIMACIONES ─── -->
+<section class="doc-section" id="animaciones">
+  <div class="doc-section-title">Clases de animación</div>
+  <p class="doc-section-sub">Sin JS. Solo agrega la clase y el elemento entra animado al cargar.</p>
+
+  <div class="anim-grid">
+    <div class="anim-box" onclick="playAnim(this,'anim-fade-up')"><div class="anim-preview">↑</div><div class="anim-label">anim-fade-up</div><div class="anim-sub">Desde abajo</div></div>
+    <div class="anim-box" onclick="playAnim(this,'anim-fade-down')"><div class="anim-preview">↓</div><div class="anim-label">anim-fade-down</div><div class="anim-sub">Desde arriba</div></div>
+    <div class="anim-box" onclick="playAnim(this,'anim-fade-left')"><div class="anim-preview">←</div><div class="anim-label">anim-fade-left</div><div class="anim-sub">Desde la derecha</div></div>
+    <div class="anim-box" onclick="playAnim(this,'anim-fade-right')"><div class="anim-preview">→</div><div class="anim-label">anim-fade-right</div><div class="anim-sub">Desde la izquierda</div></div>
+    <div class="anim-box" onclick="playAnim(this,'anim-scale-in')"><div class="anim-preview">⬡</div><div class="anim-label">anim-scale-in</div><div class="anim-sub">Escala desde 94%</div></div>
+    <div class="anim-box" onclick="playAnim(this,'anim-fade-in')"><div class="anim-preview">○</div><div class="anim-label">anim-fade-in</div><div class="anim-sub">Solo opacidad</div></div>
+  </div>
+  <p style="font-size:.75rem; color:#94a3b8; margin-top:.6rem;">Haz clic en cada caja para ver la animación.</p>
+</section>
+
+<!-- ─── STAGGER ─── -->
+<section class="doc-section" id="stagger">
+  <div class="doc-section-title">Stagger secuencial</div>
+  <p class="doc-section-sub">Combina <code>anim-fade-up</code> con <code>anim-delay-N</code> para entradas escalonadas.</p>
+  <div class="doc-card">
+    <div class="doc-card-header">HTML</div>
+    <div class="doc-card-body">
+      <pre><span class="tc">&lt;!-- KPIs que aparecen uno a uno --&gt;</span>
+<span class="tk">&lt;div</span> <span class="ta">class</span>=<span class="ts">"kpi-card kpi-primary anim-fade-up anim-delay-1"</span><span class="tk">&gt;</span>...<span class="tk">&lt;/div&gt;</span>
+<span class="tk">&lt;div</span> <span class="ta">class</span>=<span class="ts">"kpi-card kpi-success anim-fade-up anim-delay-2"</span><span class="tk">&gt;</span>...<span class="tk">&lt;/div&gt;</span>
+<span class="tk">&lt;div</span> <span class="ta">class</span>=<span class="ts">"kpi-card kpi-warning anim-fade-up anim-delay-3"</span><span class="tk">&gt;</span>...<span class="tk">&lt;/div&gt;</span>
+
+<span class="tc">&lt;!-- Delays disponibles: anim-delay-1 a anim-delay-20 (paso 0.05s) --&gt;</span>
+<span class="tc">&lt;!-- Filas de tabla: ya tienen stagger automático, no necesitas clases --&gt;</span></pre>
+    </div>
+  </div>
+</section>
+
+<hr class="doc-div" />
+
+<!-- ─── NAVBAR ─── -->
+<section class="doc-section" id="navbar">
+  <div class="doc-section-title">Navbar completo</div>
+  <p class="doc-section-sub">Fondo <code>#13151f</code>, texto cyan, dropdown blanco. Copia este JS al final de cada vista.</p>
+  <div class="doc-card">
+    <div class="doc-card-header">Estructura mínima</div>
+    <div class="doc-card-body">
+      <pre><span class="tk">&lt;nav</span> <span class="ta">class</span>=<span class="ts">"navbar"</span><span class="tk">&gt;</span>
+  <span class="tk">&lt;div</span> <span class="ta">class</span>=<span class="ts">"navbar-left"</span><span class="tk">&gt;</span>
+    <span class="tk">&lt;div</span> <span class="ta">class</span>=<span class="ts">"nav-menu"</span><span class="tk">&gt;</span>
+      <span class="tk">&lt;div</span> <span class="ta">class</span>=<span class="ts">"nav-trigger"</span><span class="tk">&gt;</span>Procesos ▾<span class="tk">&lt;/div&gt;</span>
+      <span class="tk">&lt;div</span> <span class="ta">class</span>=<span class="ts">"nav-dropdown"</span><span class="tk">&gt;</span>
+        <span class="tk">&lt;a</span> <span class="ta">href</span>=<span class="ts">"/procesos/carga"</span><span class="tk">&gt;</span>Carga Asistencia<span class="tk">&lt;/a&gt;</span>
+        <span class="tk">&lt;a</span> <span class="ta">href</span>=<span class="ts">"/procesos/pre-factura"</span> <span class="ta">class</span>=<span class="ts">"active"</span><span class="tk">&gt;</span>Pre Factura<span class="tk">&lt;/a&gt;</span>
+      <span class="tk">&lt;/div&gt;</span>
+    <span class="tk">&lt;/div&gt;</span>
+    <span class="tk">&lt;a</span> <span class="ta">class</span>=<span class="ts">"nav-cerrar"</span> <span class="ta">href</span>=<span class="ts">"/logout"</span><span class="tk">&gt;</span>Cerrar sesión<span class="tk">&lt;/a&gt;</span>
+  <span class="tk">&lt;/div&gt;</span>
+  <span class="tk">&lt;div</span> <span class="ta">class</span>=<span class="ts">"navbar-right"</span><span class="tk">&gt;</span>
+    <span class="tk">&lt;button</span> <span class="ta">class</span>=<span class="ts">"btn-sync"</span><span class="tk">&gt;</span>↻ Sincronizar relojes<span class="tk">&lt;/button&gt;</span>
+  <span class="tk">&lt;/div&gt;</span>
+<span class="tk">&lt;/nav&gt;</span>
+<span class="tk">&lt;div</span> <span class="ta">class</span>=<span class="ts">"sub-band"</span><span class="tk">&gt;&lt;/div&gt;</span>
+
+<span class="tc">&lt;!-- JS al final del body --&gt;</span>
+<span class="tk">&lt;script&gt;</span>
+document.querySelectorAll('.nav-menu').forEach(m => {
+  m.querySelector('.nav-trigger').addEventListener('click', e => {
+    e.stopPropagation();
+    const open = m.classList.contains('open');
+    document.querySelectorAll('.nav-menu.open').forEach(x => x.classList.remove('open'));
+    if (!open) m.classList.add('open');
+  });
+});
+document.addEventListener('click', () =>
+  document.querySelectorAll('.nav-menu.open').forEach(m => m.classList.remove('open'))
+);
+<span class="tk">&lt;/script&gt;</span></pre>
+    </div>
+  </div>
+</section>
+
+<!-- ─── LOGIN ─── -->
+<section class="doc-section" id="login">
+  <div class="doc-section-title">Página de Login</div>
+  <p class="doc-section-sub">Vista completa en <code>Login.html</code>. Usa como plantilla base para tu <code>sessions/new.html.erb</code>.</p>
+
+  <div class="doc-card">
+    <div class="doc-card-header">Características incluidas</div>
+    <div class="doc-card-body">
+      <table class="ref-table">
+        <thead><tr><th>Elemento</th><th>Descripción</th></tr></thead>
+        <tbody>
+          <tr><td>Panel izquierdo</td><td class="desc">Reloj analógico y digital en tiempo real, features del sistema</td></tr>
+          <tr><td>Toggle contraseña</td><td class="desc">Ícono ojo para mostrar/ocultar el campo password</td></tr>
+          <tr><td>Indicador de fuerza</td><td class="desc">4 barras de color: débil → regular → fuerte → muy fuerte</td></tr>
+          <tr><td>Barra de progreso</td><td class="desc">Avance animado durante la llamada al servidor</td></tr>
+          <tr><td>Switch "Recordarme"</td><td class="desc">Toggle CSS puro, envía checkbox al form</td></tr>
+          <tr><td>Alerta de error</td><td class="desc">Aparece animada si las credenciales son inválidas</td></tr>
+          <tr><td>Redirige a login</td><td class="desc">Demo: usuario <code>admin</code> / contraseña <code>1234</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="doc-card">
+    <div class="doc-card-header">Integración Rails (sessions/new.html.erb)</div>
+    <div class="doc-card-body">
+      <pre><span class="tc"># Reemplaza el &lt;form&gt; del Login.html con el de Rails:</span>
+<span class="tv">&lt;%= form_with url: session_path, local: true do |f| %&gt;</span>
+  <span class="tk">&lt;div</span> <span class="ta">class</span>=<span class="ts">"login-field"</span><span class="tk">&gt;</span>
+    <span class="tk">&lt;label</span> <span class="ta">class</span>=<span class="ts">"form-label"</span><span class="tk">&gt;</span>Usuario<span class="tk">&lt;/label&gt;</span>
+    <span class="tv">&lt;%= f.text_field :username,</span>
+          class: "form-input",
+          placeholder: "Número de empleado" <span class="tv">%&gt;</span>
+  <span class="tk">&lt;/div&gt;</span>
+  <span class="tk">&lt;div</span> <span class="ta">class</span>=<span class="ts">"login-field"</span><span class="tk">&gt;</span>
+    <span class="tv">&lt;%= f.password_field :password, class: "form-input" %&gt;</span>
+  <span class="tk">&lt;/div&gt;</span>
+  <span class="tv">&lt;%= f.submit "Iniciar sesión", class: "btn-login" %&gt;</span>
+<span class="tv">&lt;% end %&gt;</span></pre>
+    </div>
+  </div>
+</section>
+
+<!-- ─── FLUJO ─── -->
+<section class="doc-section" id="flujo">
+  <div class="doc-section-title">Flujo de facturación</div>
+
+  <div class="flow-steps">
+    <div class="flow-step">1. Reloj descarga marcas</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">2. Revisión / limpieza</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step active">3. Marcaciones ←</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">4. Aprobaciones</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">5. Pre Factura</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">6. CFDI</div>
+  </div>
+
+  <div class="doc-card" style="margin-top:1rem;">
+    <div class="doc-card-header">Menú → Vista</div>
+    <div class="doc-card-body">
+      <table class="ref-table">
+        <thead><tr><th>Menú → Submenú</th><th>Vista / archivo</th></tr></thead>
+        <tbody>
+          <tr><td>Reloj → Marcaciones</td><td class="desc">Reloj Control - Marcaciones.html</td></tr>
+          <tr><td>Procesos → Pre Factura</td><td class="desc">Pre Factura (próxima vista)</td></tr>
+          <tr><td>Aprobación → Bandeja Jefe</td><td class="desc">Bandeja de Aprobación</td></tr>
+          <tr><td>Aprobación → Bandeja RRHH</td><td class="desc">Validación final</td></tr>
+          <tr><td>Contratistas → Contratista</td><td class="desc">Datos fiscales + tarifas</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ─── TOKENS ─── -->
+<section class="doc-section" id="tokens">
+  <div class="doc-section-title">Tokens de diseño</div>
+  <p class="doc-section-sub">Variables CSS en <code>:root</code>. Úsalas con <code>var(--nombre)</code> en tu propio CSS.</p>
+  <div class="doc-card">
+    <div class="doc-card-header">Principales</div>
+    <div class="doc-card-body">
+      <table class="ref-table">
+        <thead><tr><th>Variable</th><th>Valor</th><th>Uso</th></tr></thead>
+        <tbody>
+          <tr><td>--font-sans</td><td>'Inter'</td><td class="desc">Texto de UI</td></tr>
+          <tr><td>--font-mono</td><td>'JetBrains Mono'</td><td class="desc">Horas, RFCs, montos</td></tr>
+          <tr><td>--color-primary-dark</td><td>#13151f</td><td class="desc">Navbar</td></tr>
+          <tr><td>--color-primary-light</td><td>#1d6fb8</td><td class="desc">Botones, links activos</td></tr>
+          <tr><td>--color-accent</td><td>#5ecfca</td><td class="desc">Cyan del navbar</td></tr>
+          <tr><td>--color-success</td><td>#16a34a</td><td class="desc">Pagado, aprobado</td></tr>
+          <tr><td>--color-warning</td><td>#d97706</td><td class="desc">Pendiente</td></tr>
+          <tr><td>--color-danger</td><td>#dc2626</td><td class="desc">Vencido, error</td></tr>
+          <tr><td>--color-bg</td><td>#f0f4f8</td><td class="desc">Fondo de página</td></tr>
+          <tr><td>--radius-md</td><td>8px</td><td class="desc">Cards, inputs</td></tr>
+          <tr><td>--radius-lg</td><td>12px</td><td class="desc">Cards grandes</td></tr>
+          <tr><td>--shadow-sm</td><td>0 1px 4px …</td><td class="desc">Cards estándar</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ─── COLORES ─── -->
+<section class="doc-section" id="colores">
+  <div class="doc-section-title">Paleta de colores</div>
+  <div class="color-grid">
+    <div class="color-swatch"><div class="color-sample" style="background:#13151f;"></div><div class="color-info"><div class="color-name">Navy / Navbar</div><div class="color-var">#13151f</div></div></div>
+    <div class="color-swatch"><div class="color-sample" style="background:#1d6fb8;"></div><div class="color-info"><div class="color-name">Azul primario</div><div class="color-var">#1d6fb8</div></div></div>
+    <div class="color-swatch"><div class="color-sample" style="background:#5ecfca;"></div><div class="color-info"><div class="color-name">Cyan navbar</div><div class="color-var">#5ecfca</div></div></div>
+    <div class="color-swatch"><div class="color-sample" style="background:#16a34a;"></div><div class="color-info"><div class="color-name">Verde éxito</div><div class="color-var">#16a34a</div></div></div>
+    <div class="color-swatch"><div class="color-sample" style="background:#d97706;"></div><div class="color-info"><div class="color-name">Ámbar pendiente</div><div class="color-var">#d97706</div></div></div>
+    <div class="color-swatch"><div class="color-sample" style="background:#dc2626;"></div><div class="color-info"><div class="color-name">Rojo error</div><div class="color-var">#dc2626</div></div></div>
+    <div class="color-swatch"><div class="color-sample" style="background:#7c3aed;"></div><div class="color-info"><div class="color-name">Púrpura manual</div><div class="color-var">#7c3aed</div></div></div>
+    <div class="color-swatch"><div class="color-sample" style="background:#f0f4f8; border-bottom:1px solid #e2e8f0;"></div><div class="color-info"><div class="color-name">Fondo de página</div><div class="color-var">#f0f4f8</div></div></div>
+  </div>
+</section>
+
+</main>
+
+<script>
+  /* Demo animaciones */
+  function playAnim(box, cls) {
+    const preview = box.querySelector('.anim-preview');
+    preview.style.animation = 'none';
+    preview.offsetHeight;
+    preview.style.animation = cls + ' .5s cubic-bezier(.22,1,.36,1) both';
+  }
+
+  /* TOC scroll activo */
+  const links = document.querySelectorAll('.doc-nav-link');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        links.forEach(l => l.classList.remove('active'));
+        const l = document.querySelector('.doc-nav-link[href="#' + e.target.id + '"]');
+        if (l) l.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-15% 0px -80% 0px' });
+
+  document.querySelectorAll('.doc-section[id]').forEach(s => observer.observe(s));
+</script>
+</body>
+</html>
