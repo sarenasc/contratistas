@@ -10,32 +10,43 @@ $flash_ok    = null;
 
 // Agregar un nuevo registro
 if (isset($_POST['guardar'])) {
-    $cargo    = strtoupper(trim($_POST['cargo']));
-    $id_mo    = (int)$_POST['id_mo'] ?: null;
-    $cod_fact = trim($_POST['cod_fact']);
-    $sql = "INSERT INTO [dbo].[Dota_Cargo] ([cargo],[id_mo],[cod_fact],[fecha_ingreso])
-            VALUES (?, ?, ?, GETDATE())";
-    sqlsrv_query($conn, $sql, [$cargo, $id_mo, $cod_fact]);
-    $flash_ok = "Labor guardada correctamente.";
+    $cargo    = strtoupper(trim($_POST['cargo'] ?? ''));
+    $id_mo    = (int)($_POST['id_mo'] ?? 0) ?: null;
+    $cod_fact = trim($_POST['cod_fact'] ?? '');
+    if ($cargo === '') {
+        $flash_error = "El nombre de la labor no puede estar vacío.";
+    } else {
+        $sql = "INSERT INTO [dbo].[Dota_Cargo] ([cargo],[id_mo],[cod_fact],[fecha_ingreso])
+                VALUES (?, ?, ?, GETDATE())";
+        $r = sqlsrv_query($conn, $sql, [$cargo, $id_mo, $cod_fact]);
+        if ($r === false) $flash_error = "Error al guardar la labor.";
+        else $flash_ok = "Labor guardada correctamente.";
+    }
 }
 
 // Editar un registro existente
 if (isset($_POST['editar'])) {
     $id_cargo = (int)$_POST['id_cargo'];
-    $cargo    = strtoupper(trim($_POST['cargo']));
-    $id_mo    = (int)$_POST['id_mo'] ?: null;
-    $cod_fact = trim($_POST['cod_fact']);
-    $sql = "UPDATE [dbo].[Dota_Cargo] SET cargo = ?, id_mo = ?, cod_fact = ? WHERE id_cargo = ?";
-    sqlsrv_query($conn, $sql, [$cargo, $id_mo, $cod_fact, $id_cargo]);
-    $flash_ok = "Labor actualizada correctamente.";
+    $cargo    = strtoupper(trim($_POST['cargo'] ?? ''));
+    $id_mo    = (int)($_POST['id_mo'] ?? 0) ?: null;
+    $cod_fact = trim($_POST['cod_fact'] ?? '');
+    if ($cargo === '') {
+        $flash_error = "El nombre de la labor no puede estar vacío.";
+    } else {
+        $sql = "UPDATE [dbo].[Dota_Cargo] SET cargo = ?, id_mo = ?, cod_fact = ? WHERE id_cargo = ?";
+        $r = sqlsrv_query($conn, $sql, [$cargo, $id_mo, $cod_fact, $id_cargo]);
+        if ($r === false) $flash_error = "Error al actualizar la labor.";
+        else $flash_ok = "Labor actualizada correctamente.";
+    }
 }
 
 // Eliminar un registro
 if (isset($_POST['eliminar'])) {
     $id_cargo = (int)$_POST['id_cargo'];
     $sql = "DELETE FROM [dbo].[Dota_Cargo] WHERE id_cargo = ?";
-    sqlsrv_query($conn, $sql, [$id_cargo]);
-    $flash_ok = "Labor eliminada.";
+    $r = sqlsrv_query($conn, $sql, [$id_cargo]);
+    if ($r === false) $flash_error = "Error al eliminar la labor.";
+    else $flash_ok = "Labor eliminada.";
 }
 
 // Carga masiva desde Excel

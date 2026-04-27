@@ -64,12 +64,18 @@ if (isset($_POST['editar'])) {
     $id_usuario = (int)$_POST['id_usuario'] ?: null;
     $activo     = (int)$_POST['activo'];
 
-    $r = sqlsrv_query($conn,
-        "UPDATE dbo.dota_jefe_area SET nombre=?, rut=?, id_area=?, id_turno=?, id_usuario=?, activo=? WHERE id=?",
-        [$nombre, $rut ?: null, $id_area, $id_turno, $id_usuario, $activo, $id]
-    );
-    if ($r === false) $flash_error = "Error al editar: " . print_r(sqlsrv_errors(), true);
-    else $flash_ok = "Jefe de área actualizado.";
+    if ($nombre === '') {
+        $flash_error = "El nombre no puede estar vacío.";
+    } elseif ($id_area === 0) {
+        $flash_error = "Debe seleccionar un área.";
+    } else {
+        $r = sqlsrv_query($conn,
+            "UPDATE dbo.dota_jefe_area SET nombre=?, rut=?, id_area=?, id_turno=?, id_usuario=?, activo=? WHERE id=?",
+            [$nombre, $rut ?: null, $id_area, $id_turno, $id_usuario, $activo, $id]
+        );
+        if ($r === false) $flash_error = "Error al editar: " . print_r(sqlsrv_errors(), true);
+        else $flash_ok = "Jefe de área actualizado.";
+    }
 }
 
 if (isset($_POST['eliminar'])) {
@@ -79,12 +85,25 @@ if (isset($_POST['eliminar'])) {
     else $flash_ok = "Jefe de área eliminado.";
 }
 
+// Paginación
+$per_page = 20;
+$page     = max(1, (int)($_GET['page'] ?? 1));
+$offset   = ($page - 1) * $per_page;
+
+$total     = 0;
+$stmtCount = sqlsrv_query($conn, "SELECT COUNT(*) FROM dbo.dota_jefe_area j INNER JOIN dbo.Area a ON a.id_area = j.id_area");
+if ($stmtCount) { $total = (int)sqlsrv_fetch_array($stmtCount, SQLSRV_FETCH_NUMERIC)[0]; }
+$total_pages = max(1, (int)ceil($total / $per_page));
+$page        = min($page, $total_pages);
+
 $query = sqlsrv_query($conn,
     "SELECT j.id, j.nombre, j.rut, j.id_area, a.Area, j.id_turno, t.nombre_turno, j.id_usuario, j.activo
      FROM dbo.dota_jefe_area j
      INNER JOIN dbo.Area a ON a.id_area = j.id_area
      LEFT  JOIN dbo.dota_turno t ON t.id = j.id_turno
-     ORDER BY a.Area, t.nombre_turno, j.nombre"
+     ORDER BY a.Area, t.nombre_turno, j.nombre
+     OFFSET ? ROWS FETCH NEXT ? ROWS ONLY",
+    [$offset, $per_page]
 );
 
 $title = "Jefes de Área";
@@ -245,8 +264,29 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
         </table>
     </div>
 
+    <!-- Paginación -->
+    <?php if ($total_pages > 1): ?>
+    <nav class="mt-3">
+        <ul class="pagination justify-content-center">
+            <li class="page-item <?= $page <= 1 ? 'disabled' : '' ?>">
+                <a class="page-link" href="?page=<?= $page - 1 ?>">«</a>
+            </li>
+            <?php for ($p = 1; $p <= $total_pages; $p++): ?>
+            <li class="page-item <?= $p === $page ? 'active' : '' ?>">
+                <a class="page-link" href="?page=<?= $p ?>"><?= $p ?></a>
+            </li>
+            <?php endfor; ?>
+            <li class="page-item <?= $page >= $total_pages ? 'disabled' : '' ?>">
+                <a class="page-link" href="?page=<?= $page + 1 ?>">»</a>
+            </li>
+        </ul>
+        <p class="text-center text-muted small">Mostrando <?= $offset + 1 ?>–<?= min($offset + $per_page, $total) ?> de <?= $total ?> registros</p>
+    </nav>
+    <?php endif; ?>
+
     <script>
     function accion(tipo, btn) {
+        if (tipo === 'eliminar' && !confirm('¿Eliminar este jefe de área?')) return;
         const tr = btn.closest('tr');
         document.getElementById('f-id').value          = tr.dataset.id;
         document.getElementById('f-nombre').value      = tr.querySelector('.inp-nombre').value;

@@ -38,6 +38,10 @@ public/some_page.php
 `config/conexion.php` opens two connections available globally:
 - `$conn` → `DB_NAME` (SistGestion) — main application database
 - `$conn2` → `DB_NAME2` (Facturador externo) — used only to import billing marks
+- `$conn_reloj` → `DB_NAME_RELOJ` — attendance clock database; used to fetch marks directly from biometric/clock devices
+
+### Relojes de marcación (dispositivos)
+The system connects to biometric attendance clock devices to retrieve employee clock-in/out marks. `public/dispositivos.php` is already configured and handles this integration. The connection uses `DB_NAME_RELOJ` (defined in `config/.env`) via `$conn_reloj`.
 
 ### DB helper (`app/lib/db.php`)
 Always use `db_query($conn, $sql, $params)` instead of `sqlsrv_query()` directly — it throws a `RuntimeException` on failure with a formatted error message. Never use `die(print_r(sqlsrv_errors(), true))`.

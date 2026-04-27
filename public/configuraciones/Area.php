@@ -2,32 +2,64 @@
 require_once __DIR__ . '/../_bootstrap.php';
 $username = nombre_usuario();
 
+$flash_error = null;
+$flash_ok    = null;
+
 // Agregar un nuevo registro
 if (isset($_POST['guardar'])) {
-    $area     = $_POST['area'];
-    $cod_fact = $_POST['cod_fact'];
-    $sql_insert = "INSERT INTO [dbo].[Area] (Area, cod_fact) VALUES (?, ?)";
-    sqlsrv_query($conn, $sql_insert, [$area, $cod_fact]);
+    $area     = trim($_POST['area'] ?? '');
+    $cod_fact = trim($_POST['cod_fact'] ?? '');
+    if ($area === '') {
+        $flash_error = "El nombre del área no puede estar vacío.";
+    } elseif ($cod_fact === '') {
+        $flash_error = "El código facturador no puede estar vacío.";
+    } else {
+        $r = sqlsrv_query($conn, "INSERT INTO [dbo].[Area] (Area, cod_fact) VALUES (?, ?)", [$area, $cod_fact]);
+        if ($r === false) $flash_error = "Error al guardar el área.";
+        else $flash_ok = "Área agregada correctamente.";
+    }
 }
 
 // Editar un registro existente
 if (isset($_POST['editar'])) {
     $id_area  = (int)$_POST['id_area'];
-    $area     = $_POST['area'];
-    $cod_fact = $_POST['cod_fact'];
-    $sql_update = "UPDATE [dbo].[Area] SET Area = ?, cod_fact = ? WHERE id_area = ?";
-    sqlsrv_query($conn, $sql_update, [$area, $cod_fact, $id_area]);
+    $area     = trim($_POST['area'] ?? '');
+    $cod_fact = trim($_POST['cod_fact'] ?? '');
+    if ($area === '') {
+        $flash_error = "El nombre del área no puede estar vacío.";
+    } elseif ($cod_fact === '') {
+        $flash_error = "El código facturador no puede estar vacío.";
+    } else {
+        $r = sqlsrv_query($conn, "UPDATE [dbo].[Area] SET Area = ?, cod_fact = ? WHERE id_area = ?", [$area, $cod_fact, $id_area]);
+        if ($r === false) $flash_error = "Error al actualizar el área.";
+        else $flash_ok = "Área actualizada correctamente.";
+    }
 }
 
 // Eliminar un registro
 if (isset($_POST['eliminar'])) {
     $id_area = (int)$_POST['id_area'];
-    $sql_delete = "DELETE FROM [dbo].[Area] WHERE id_area = ?";
-    sqlsrv_query($conn, $sql_delete, [$id_area]);
+    $r = sqlsrv_query($conn, "DELETE FROM [dbo].[Area] WHERE id_area = ?", [$id_area]);
+    if ($r === false) $flash_error = "Error al eliminar el área.";
+    else $flash_ok = "Área eliminada.";
 }
 
-// Consultar los registros
-$query = sqlsrv_query($conn, "SELECT [id_area], [Area], [cod_fact] FROM [dbo].[Area]");
+// Paginación
+$per_page = 20;
+$page     = max(1, (int)($_GET['page'] ?? 1));
+$offset   = ($page - 1) * $per_page;
+
+$total     = 0;
+$stmtCount = sqlsrv_query($conn, "SELECT COUNT(*) FROM [dbo].[Area]");
+if ($stmtCount) { $total = (int)sqlsrv_fetch_array($stmtCount, SQLSRV_FETCH_NUMERIC)[0]; }
+$total_pages = max(1, (int)ceil($total / $per_page));
+$page        = min($page, $total_pages);
+
+$query = sqlsrv_query($conn,
+    "SELECT [id_area], [Area], [cod_fact] FROM [dbo].[Area]
+     ORDER BY [Area] OFFSET ? ROWS FETCH NEXT ? ROWS ONLY",
+    [$offset, $per_page]
+);
 
 $title = "Áreas";
 include __DIR__ . '/../partials/header.php';
@@ -40,6 +72,13 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
         <h5 class="text-muted">Usuario: <?= htmlspecialchars($username) ?></h5>
         <h1 class="display-4">Gestión de Áreas</h1>
     </div>
+
+    <?php if ($flash_error): ?>
+      <div class="alert alert-danger"><?= htmlspecialchars($flash_error) ?></div>
+    <?php endif; ?>
+    <?php if ($flash_ok): ?>
+      <div class="alert alert-success"><?= htmlspecialchars($flash_ok) ?></div>
+    <?php endif; ?>
 
     <!-- Formulario agregar -->
     <div class="card mb-4">
@@ -100,8 +139,29 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
         </table>
     </div>
 
+    <!-- Paginación -->
+    <?php if ($total_pages > 1): ?>
+    <nav class="mt-3">
+        <ul class="pagination justify-content-center">
+            <li class="page-item <?= $page <= 1 ? 'disabled' : '' ?>">
+                <a class="page-link" href="?page=<?= $page - 1 ?>">«</a>
+            </li>
+            <?php for ($p = 1; $p <= $total_pages; $p++): ?>
+            <li class="page-item <?= $p === $page ? 'active' : '' ?>">
+                <a class="page-link" href="?page=<?= $p ?>"><?= $p ?></a>
+            </li>
+            <?php endfor; ?>
+            <li class="page-item <?= $page >= $total_pages ? 'disabled' : '' ?>">
+                <a class="page-link" href="?page=<?= $page + 1 ?>">»</a>
+            </li>
+        </ul>
+        <p class="text-center text-muted small">Mostrando <?= $offset + 1 ?>–<?= min($offset + $per_page, $total) ?> de <?= $total ?> registros</p>
+    </nav>
+    <?php endif; ?>
+
     <script>
     function accion(tipo, id, btn) {
+        if (tipo === 'eliminar' && !confirm('¿Eliminar esta área?')) return;
         var tr = btn.closest('tr');
         document.getElementById('f-id_area').value  = id;
         document.getElementById('f-area').value     = tr.querySelector('.inp-area').value;

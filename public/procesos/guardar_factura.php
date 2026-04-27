@@ -33,9 +33,19 @@ try {
         $tot_ph   += (float)($ct['tot_pct_hhee']  ?? 0);
         $tot_bono += (float)($ct['tot_bono']       ?? 0);
         $tot_fac  += (float)($ct['tot_factura']    ?? 0);
-        $tot_desc += (float)($ct['descuento']      ?? 0);
+        $tot_desc += (float)($ct['descuento'] ?? 0);
     }
     $tot_neto = $tot_fac - $tot_desc;
+
+    /* ── Verificar que la semana no esté ya facturada (proforma cerrada) ── */
+    $chkCerrada = sqlsrv_query($conn,
+        "SELECT COUNT(*) FROM dbo.dota_factura WHERE semana=? AND anio=? AND estado='cerrado'",
+        [$semana, $anio]
+    );
+    $nCerradas = $chkCerrada ? (int)sqlsrv_fetch_array($chkCerrada, SQLSRV_FETCH_NUMERIC)[0] : 0;
+    if ($nCerradas > 0) {
+        throw new RuntimeException("La semana {$semana}/{$anio} ya tiene una proforma facturada. No se puede crear ni modificar proformas.");
+    }
 
     /* ── NUEVO o ANEXAR ── */
     if ($accion === 'anexar' && $id_factura > 0) {

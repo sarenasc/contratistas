@@ -706,8 +706,8 @@ async function startPaso2() {
 
   // 2) Procesar chunks hasta done
   let done = false;
+  let json;
   while (!done) {
-    let json;
     try {
       const res = await fetch('carga_asistencia_paso2_chunk.php', { method: 'POST' });
       json = await res.json();
@@ -732,12 +732,16 @@ async function startPaso2() {
     done = !!json.done;
   }
 
-  // Éxito
+  // Éxito — redirigir a revisión del lote recién cargado
   bar.className = 'progress-bar bg-success';
   bar.style.width = '100%';
   bar.innerText   = '100%';
-  txt.innerHTML   = '<span class="text-success fw-bold">✅ Carga completada exitosamente. Redirigiendo...</span>';
-  setTimeout(() => { window.location.href = 'carga_asistencia.php'; }, 2500);
+  txt.innerHTML   = '<span class="text-success fw-bold">Carga completada. Redirigiendo a revisión...</span>';
+  const registroFinal = json.registro || '';
+  const destino = registroFinal
+    ? 'editar_asistencia.php?registro=' + encodeURIComponent(registroFinal)
+    : 'carga_asistencia.php';
+  setTimeout(() => { window.location.href = destino; }, 2000);
 }
 </script>
 

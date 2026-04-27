@@ -22,7 +22,20 @@ $cargos_cat = [];
 $qC = sqlsrv_query($conn, "SELECT id_cargo, cargo FROM dbo.Dota_Cargo ORDER BY cargo");
 if ($qC) while ($r = sqlsrv_fetch_array($qC, SQLSRV_FETCH_ASSOC)) $cargos_cat[(int)$r['id_cargo']] = $r['cargo'];
 
-$modulos_lista = ['configuraciones', 'tarifas', 'procesos', 'contratista', 'aprobacion'];
+$turnos_cat = [];
+$qT = sqlsrv_query($conn, "SELECT id, nombre_turno FROM dbo.dota_turno ORDER BY nombre_turno");
+if ($qT) while ($r = sqlsrv_fetch_array($qT, SQLSRV_FETCH_ASSOC)) $turnos_cat[(int)$r['id']] = $r['nombre_turno'];
+
+$modulos_lista  = ['configuraciones', 'tarifas', 'procesos', 'reloj', 'contratista', 'aprobacion', 'gestion_estados'];
+$modulos_labels = [
+    'configuraciones' => 'Configuraciones',
+    'tarifas'         => 'Tarifas',
+    'procesos'        => 'Procesos',
+    'reloj'           => 'Reloj',
+    'contratista'     => 'Contratistas',
+    'aprobacion'      => 'Aprobación',
+    'gestion_estados' => 'Gestión de Estados',
+];
 
 // ── GUARDAR (nuevo usuario) ──────────────────────────────────────────────────
 if (isset($_POST['guardar'])) {
@@ -79,7 +92,24 @@ if (isset($_POST['guardar'])) {
                 );
             }
 
-            $flash_ok = "Usuario '$usuario' creado correctamente.";
+            // Nivel de aprobación → dota_jefe_area
+            $nivel_aprobacion = (int)($_POST['nivel_aprobacion'] ?? 0);
+            if ($nivel_aprobacion > 0) {
+                $ja_area  = ($nivel_aprobacion === 1) ? ((int)($_POST['ja_id_area'] ?? 0) ?: null) : null;
+                $ja_turno = ($nivel_aprobacion === 1) ? ((int)($_POST['ja_id_turno'] ?? 0) ?: null) : null;
+                $ja_nombre = trim($nombre . ' ' . $apellido) ?: $usuario;
+                $resJA = sqlsrv_query($conn,
+                    "INSERT INTO dbo.dota_jefe_area (nombre, id_area, id_turno, id_usuario, nivel_aprobacion, activo)
+                     VALUES (?, ?, ?, ?, ?, 1)",
+                    [$ja_nombre, $ja_area, $ja_turno, $nuevo_id, $nivel_aprobacion]
+                );
+                if ($resJA === false) {
+                    $errs = sqlsrv_errors();
+                    $flash_error = "Usuario creado pero error en nivel de aprobacion: " . ($errs[0]['message'] ?? 'desconocido');
+                }
+            }
+
+            if (!$flash_error) $flash_ok = "Usuario '$usuario' creado correctamente.";
         } catch (Exception $e) {
             $flash_error = "Error al guardar: " . $e->getMessage();
         }
@@ -145,7 +175,26 @@ if (isset($_POST['editar'])) {
             );
         }
 
-        $flash_ok = "Usuario actualizado correctamente.";
+        // Nivel de aprobación → dota_jefe_area
+        $nivel_aprobacion = (int)($_POST['nivel_aprobacion'] ?? 0);
+        sqlsrv_query($conn, "DELETE FROM dbo.dota_jefe_area WHERE id_usuario = ?", [$id]);
+        if ($nivel_aprobacion > 0) {
+            // Para nivel 1 se usa el área seleccionada; para nivel 2/3 no se requiere área
+            $ja_area  = ($nivel_aprobacion === 1) ? ((int)($_POST['ja_id_area'] ?? 0) ?: null) : null;
+            $ja_turno = ($nivel_aprobacion === 1) ? ((int)($_POST['ja_id_turno'] ?? 0) ?: null) : null;
+            $ja_nombre = trim($nombre . ' ' . $apellido) ?: $usuario;
+            $resJA = sqlsrv_query($conn,
+                "INSERT INTO dbo.dota_jefe_area (nombre, id_area, id_turno, id_usuario, nivel_aprobacion, activo)
+                 VALUES (?, ?, ?, ?, ?, 1)",
+                [$ja_nombre, $ja_area, $ja_turno, $id, $nivel_aprobacion]
+            );
+            if ($resJA === false) {
+                $errs = sqlsrv_errors();
+                $flash_error = "Error al guardar nivel de aprobacion: " . ($errs[0]['message'] ?? 'desconocido');
+            }
+        }
+
+        if (!$flash_error) $flash_ok = "Usuario actualizado correctamente.";
     }
 }
 
@@ -184,6 +233,16 @@ if ($qU) while ($r = sqlsrv_fetch_array($qU, SQLSRV_FETCH_ASSOC)) {
     $cgs = [];
     $qCg = sqlsrv_query($conn, "SELECT id_cargo FROM dbo.dota_usuario_cargos WHERE id_usuario = ?", [$uid]);
     if ($qCg) while ($cg = sqlsrv_fetch_array($qCg, SQLSRV_FETCH_ASSOC)) $cgs[] = (int)$cg['id_cargo'];
+
+    // Nivel de aprobación
+    $qNiv = sqlsrv_query($conn,
+        "SELECT TOP 1 nivel_aprobacion, ISNULL(id_area,0) AS id_area, ISNULL(id_turno,0) AS id_turno
+         FROM dbo.dota_jefe_area WHERE id_usuario = ? AND activo = 1
+         ORDER BY nivel_aprobacion DESC", [$uid]);
+    $nivRow = $qNiv ? sqlsrv_fetch_array($qNiv, SQLSRV_FETCH_ASSOC) : null;
+    $r['nivel_aprobacion'] = (int)($nivRow['nivel_aprobacion'] ?? 0);
+    $r['ja_id_area']       = (int)($nivRow['id_area']          ?? 0);
+    $r['ja_id_turno']      = (int)($nivRow['id_turno']         ?? 0);
 
     $r['modulos']       = $mods;
     $r['areas_aprobar'] = $ars;
@@ -263,7 +322,7 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
                         <?php foreach ($modulos_lista as $mod): ?>
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" name="mod_<?= $mod ?>" id="new_mod_<?= $mod ?>">
-                            <label class="form-check-label" for="new_mod_<?= $mod ?>"><?= ucfirst($mod) ?></label>
+                            <label class="form-check-label" for="new_mod_<?= $mod ?>"><?= $modulos_labels[$mod] ?? ucfirst($mod) ?></label>
                         </div>
                         <?php endforeach; ?>
                     </div>
@@ -286,6 +345,53 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
                                 <option value="<?= $cid ?>"><?= htmlspecialchars($cnom) ?></option>
                             <?php endforeach; ?>
                         </select>
+                    </div>
+                </div>
+
+                <!-- Nivel de aprobación -->
+                <div class="row g-3 mb-3">
+                    <div class="col-md-8">
+                        <label class="form-label fw-bold">Nivel de aprobacion</label>
+                        <div class="row g-2 align-items-end">
+                            <div class="col-md-3">
+                                <label class="form-label small text-muted">Nivel</label>
+                                <select name="nivel_aprobacion" id="new-nivel" class="form-select" onchange="toggleAreaNivel(this,'new')">
+                                    <option value="0">0 — Usuario normal</option>
+                                    <option value="1">1 — Jefe de area</option>
+                                    <option value="2">2 — Jefe de operaciones</option>
+                                    <option value="3">3 — Gerencia</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4 new-area-turno" style="display:none;">
+                                <label class="form-label small text-muted">Area que aprueba</label>
+                                <select name="ja_id_area" class="form-select">
+                                    <option value="">-- Sin area especifica --</option>
+                                    <?php foreach ($areas_cat as $aid => $anom): ?>
+                                        <option value="<?= $aid ?>"><?= htmlspecialchars($anom) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="col-md-3 new-area-turno" style="display:none;">
+                                <label class="form-label small text-muted">Turno <span class="text-muted">(opcional)</span></label>
+                                <select name="ja_id_turno" class="form-select">
+                                    <option value="">-- Todos los turnos --</option>
+                                    <?php foreach ($turnos_cat as $tid => $tnom): ?>
+                                        <option value="<?= $tid ?>"><?= htmlspecialchars($tnom) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card border-info h-100">
+                            <div class="card-body py-2 px-3 small">
+                                <div class="fw-bold text-info mb-1">Referencia de niveles</div>
+                                <div><span class="badge bg-secondary me-1">0</span> Usuario normal — solo accede a modulos asignados</div>
+                                <div><span class="badge bg-primary me-1">1</span> Jefe de area — aprueba asistencia de su area/turno</div>
+                                <div><span class="badge bg-warning text-dark me-1">2</span> Jefe de operaciones — aprueba lotes completos</div>
+                                <div><span class="badge bg-success me-1">3</span> Gerencia — acceso de revision (se habilitara)</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -313,6 +419,7 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
                     <th>Perfil</th>
                     <th>Módulos</th>
                     <th>Áreas aprobación</th>
+                    <th>Nivel aprobacion</th>
                     <th>Activo</th>
                     <th>Acciones</th>
                 </tr>
@@ -340,6 +447,17 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
                         ?>
                     </td>
                     <td class="text-center">
+                        <?php
+                        $niv = (int)$u['nivel_aprobacion'];
+                        $nivLabels = [0=>'Normal',1=>'Jefe Area',2=>'Jefe Ops',3=>'Gerencia'];
+                        $nivColors = [0=>'secondary',1=>'primary',2=>'warning',3=>'success'];
+                        $nivTextClass = [0=>'',1=>'',2=>'text-dark',3=>''];
+                        ?>
+                        <span class="badge bg-<?= $nivColors[$niv] ?> <?= $nivTextClass[$niv] ?>">
+                            <?= $niv ?> — <?= $nivLabels[$niv] ?? $niv ?>
+                        </span>
+                    </td>
+                    <td class="text-center">
                         <form method="POST" style="display:inline">
                             <input type="hidden" name="id" value="<?= (int)$u['id_usuario'] ?>">
                             <input type="hidden" name="activo" value="<?= $u['activo'] ? 0 : 1 ?>">
@@ -350,8 +468,26 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
                         </form>
                     </td>
                     <td>
+                        <?php
+                        $u_json = [
+                            'id_usuario'       => $u['id_usuario'],
+                            'usuario'          => $u['usuario'],
+                            'nombre'           => $u['nombre'],
+                            'apellido'         => $u['apellido'],
+                            'email'            => $u['email'],
+                            'id_perfil'        => $u['id_perfil'],
+                            'id_area'          => $u['id_area'],
+                            'activo'           => $u['activo'],
+                            'modulos'          => $u['modulos'],
+                            'areas_aprobar'    => $u['areas_aprobar'],
+                            'cargos_aprobar'   => $u['cargos_aprobar'],
+                            'nivel_aprobacion' => $u['nivel_aprobacion'],
+                            'ja_id_area'       => $u['ja_id_area'],
+                            'ja_id_turno'      => $u['ja_id_turno'],
+                        ];
+                        ?>
                         <button class="btn btn-warning btn-sm"
-                            onclick="abrirModal(<?= htmlspecialchars(json_encode($u), ENT_QUOTES) ?>)">
+                            onclick="abrirModal(<?= htmlspecialchars(json_encode($u_json), ENT_QUOTES) ?>)">
                             Editar
                         </button>
                     </td>
@@ -421,7 +557,7 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
                             <?php foreach ($modulos_lista as $mod): ?>
                             <div class="form-check">
                                 <input class="form-check-input" type="checkbox" name="mod_<?= $mod ?>" id="edit_mod_<?= $mod ?>">
-                                <label class="form-check-label" for="edit_mod_<?= $mod ?>"><?= ucfirst($mod) ?></label>
+                                <label class="form-check-label" for="edit_mod_<?= $mod ?>"><?= $modulos_labels[$mod] ?? ucfirst($mod) ?></label>
                             </div>
                             <?php endforeach; ?>
                         </div>
@@ -447,6 +583,53 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
                         </div>
                     </div>
 
+                    <!-- Nivel de aprobación -->
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-8">
+                            <label class="form-label fw-bold">Nivel de aprobacion</label>
+                            <div class="row g-2 align-items-end">
+                                <div class="col-md-3">
+                                    <label class="form-label small text-muted">Nivel</label>
+                                    <select name="nivel_aprobacion" id="edit-nivel" class="form-select" onchange="toggleAreaNivel(this,'edit')">
+                                        <option value="0">0 — Usuario normal</option>
+                                        <option value="1">1 — Jefe de area</option>
+                                        <option value="2">2 — Jefe de operaciones</option>
+                                        <option value="3">3 — Gerencia</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4 edit-area-turno" style="display:none;">
+                                    <label class="form-label small text-muted">Area que aprueba</label>
+                                    <select name="ja_id_area" id="edit-ja-area" class="form-select">
+                                        <option value="">-- Sin area especifica --</option>
+                                        <?php foreach ($areas_cat as $aid => $anom): ?>
+                                            <option value="<?= $aid ?>"><?= htmlspecialchars($anom) ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <div class="col-md-3 edit-area-turno" style="display:none;">
+                                    <label class="form-label small text-muted">Turno <span class="text-muted">(opcional)</span></label>
+                                    <select name="ja_id_turno" id="edit-ja-turno" class="form-select">
+                                        <option value="">-- Todos los turnos --</option>
+                                        <?php foreach ($turnos_cat as $tid => $tnom): ?>
+                                            <option value="<?= $tid ?>"><?= htmlspecialchars($tnom) ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card border-info h-100">
+                                <div class="card-body py-2 px-3 small">
+                                    <div class="fw-bold text-info mb-1">Referencia de niveles</div>
+                                    <div><span class="badge bg-secondary me-1">0</span> Usuario normal</div>
+                                    <div><span class="badge bg-primary me-1">1</span> Jefe de area</div>
+                                    <div><span class="badge bg-warning text-dark me-1">2</span> Jefe de operaciones</div>
+                                    <div><span class="badge bg-success me-1">3</span> Gerencia</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="form-check">
                         <input class="form-check-input" type="checkbox" name="activo" id="edit-activo" value="1">
                         <label class="form-check-label" for="edit-activo">Activo</label>
@@ -464,20 +647,33 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
 <?php include __DIR__ . '/../partials/footer.php'; ?>
 
 <script>
-// Inicializar Select2 en campos múltiples
 $(document).ready(function () {
     $('.select2-multi').select2({ width: '100%', placeholder: 'Seleccionar...' });
 });
 
+function toggleAreaNivel(sel, prefix) {
+    const nivel = parseInt(sel.value);
+    document.querySelectorAll('.' + prefix + '-area-turno').forEach(el => {
+        el.style.display = nivel === 1 ? '' : 'none';
+    });
+}
+
 function abrirModal(u) {
-    document.getElementById('edit-id').value      = u.id_usuario;
-    document.getElementById('edit-usuario').value = u.usuario;
-    document.getElementById('edit-nombre').value  = u.nombre  || '';
-    document.getElementById('edit-apellido').value= u.apellido|| '';
-    document.getElementById('edit-email').value   = u.email   || '';
-    document.getElementById('edit-perfil').value  = u.id_perfil;
-    document.getElementById('edit-area').value    = u.id_area || '';
-    document.getElementById('edit-activo').checked= u.activo == 1;
+    document.getElementById('edit-id').value       = u.id_usuario;
+    document.getElementById('edit-usuario').value  = u.usuario;
+    document.getElementById('edit-nombre').value   = u.nombre   || '';
+    document.getElementById('edit-apellido').value = u.apellido || '';
+    document.getElementById('edit-email').value    = u.email    || '';
+    document.getElementById('edit-perfil').value   = u.id_perfil;
+    document.getElementById('edit-area').value     = u.id_area  || '';
+    document.getElementById('edit-activo').checked = u.activo == 1;
+
+    // Nivel de aprobación
+    const nivelSel = document.getElementById('edit-nivel');
+    nivelSel.value = u.nivel_aprobacion || 0;
+    toggleAreaNivel(nivelSel, 'edit');
+    document.getElementById('edit-ja-area').value  = u.ja_id_area  || '';
+    document.getElementById('edit-ja-turno').value = u.ja_id_turno || '';
 
     // Módulos
     <?php foreach ($modulos_lista as $mod): ?>

@@ -1,38 +1,26 @@
 <?php
 require_once __DIR__ . '/../_bootstrap.php';
 require_once __DIR__ . '/../../app/lib/db.php';
-
-function normalize_date_or_null($v) {
-    $v = trim((string)$v);
-    if ($v === '') return null;           // permite null
-    // Esperamos YYYY-MM-DD (input type=date)
-    $dt = DateTime::createFromFormat('Y-m-d', $v);
-    if (!$dt) return null;                // si viene malo, lo dejamos null
-    return $dt->format('Y-m-d');
-}
-
-function normalize_decimal_or_null($v) {
-    $v = trim((string)$v);
-    if ($v === '') return null;
-
-    $v = str_replace(' ', '', $v);
-
-    // Si tiene coma, asumimos formato chileno 1.234,56
-    if (strpos($v, ',') !== false) {
-        $v = str_replace('.', '', $v);   // quitar miles
-        $v = str_replace(',', '.', $v);  // coma decimal → punto
-    }
-
-    return is_numeric($v) ? (float)$v : null;
-}
+require_once __DIR__ . '/../../app/lib/validators.php';
 
 
 
 $flash_error = null;
 $flash_ok    = null;
 
+// Agregar columna id_contratista si no existe
+sqlsrv_query($conn, "
+    IF COL_LENGTH('dbo.Dota_tipo_tarifa','id_contratista') IS NULL
+        ALTER TABLE dbo.Dota_tipo_tarifa ADD id_contratista INT NULL
+");
+
+// Cargar contratistas para el selector
+$contratistas_list = [];
+$qc = sqlsrv_query($conn, "SELECT id, nombre FROM dbo.dota_contratista ORDER BY nombre");
+if ($qc) while ($rc = sqlsrv_fetch_array($qc, SQLSRV_FETCH_ASSOC))
+    $contratistas_list[] = $rc;
+
 //si se activa kilos, cajas = 0
-//echo '<pre>'; print_r($_POST); echo '</pre>'; exit;
 if (isset($_POST['toggle_kilo'])) {
 
     $id = (int)$_POST['id_tipo'];
@@ -235,9 +223,11 @@ if (isset($_POST['toggle_activa']) || isset($_POST['toggle_caja']) || isset($_PO
                                         }
 
 
+                                                $id_contratista_ins = ($caja == 1) ? ((int)($_POST['id_contratista'] ?? 0) ?: null) : null;
+
                                                 $sql = "INSERT INTO [dbo].[Dota_Tipo_Tarifa]
-                                                        ([Tipo_Tarifa],[ValorContratista],[PorcContrastista],[horasExtras],[fecha_desde],[fecha_hasta],[bono],[porc_hhee],[tarifa_activa],[kilo],[caja])
-                                                        VALUES (?,?,?,?,convert(date,? ,23),convert(date,?,23),?,?,?,?,?)";
+                                                        ([Tipo_Tarifa],[ValorContratista],[PorcContrastista],[horasExtras],[fecha_desde],[fecha_hasta],[bono],[porc_hhee],[tarifa_activa],[kilo],[caja],[id_contratista])
+                                                        VALUES (?,?,?,?,convert(date,? ,23),convert(date,?,23),?,?,?,?,?,?)";
 
                                                 $desde = normalize_date_or_null($_POST['desde'] ?? '');
                                                 $hasta = normalize_date_or_null($_POST['hasta'] ?? '');
@@ -256,7 +246,8 @@ if (isset($_POST['toggle_activa']) || isset($_POST['toggle_caja']) || isset($_PO
                                                     $por_hhee,
                                                     $tarifa_activa,
                                                     $kilo,
-                                                    $caja
+                                                    $caja,
+                                                    $id_contratista_ins
                                                 ];
 
                                                 db_query($conn, $sql, $params, 'INSERT Dota_Tipo_Tarifa');
@@ -290,9 +281,9 @@ if (isset($_POST['toggle_activa']) || isset($_POST['toggle_caja']) || isset($_PO
 
 // Eliminar un registro
 if (isset($_POST['eliminar'])) {
-    $id_tipo = $_POST['id_tipo'];
-    $sql = "DELETE FROM [dbo].[Dota_Tipo_Tarifa] WHERE id_tipo_Tarifa = $id_tipo";
-    sqlsrv_query($conn, $sql);
+    $id_tipo = (int)$_POST['id_tipo'];
+    $sql = "DELETE FROM [dbo].[Dota_Tipo_Tarifa] WHERE id_tipo_Tarifa = ?";
+    sqlsrv_query($conn, $sql, [$id_tipo]);
 }
 
 
@@ -372,6 +363,8 @@ if (isset($_POST['eliminar'])) {
                                 }
 
                                 // === 4) UPDATE ===
+                                $id_contratista_upd = (int)($_POST["id_contratista_$id"] ?? 0) ?: null;
+
                                 $sqlUpdate = "
                                     UPDATE dbo.Dota_Tipo_Tarifa
                                     SET Tipo_Tarifa       = ?,
@@ -381,7 +374,8 @@ if (isset($_POST['eliminar'])) {
                                         bono              = ?,
                                         horasExtras       = ?,
                                         fecha_desde       = ?,
-                                        fecha_hasta       = ?
+                                        fecha_hasta       = ?,
+                                        id_contratista    = ?
                                     WHERE id_tipo_Tarifa = ?
                                 ";
 
@@ -394,6 +388,7 @@ if (isset($_POST['eliminar'])) {
                                     $hhee,
                                     new DateTime($desde),
                                     new DateTime($hasta),
+                                    $id_contratista_upd,
                                     $id
                                 ];
 
@@ -414,8 +409,13 @@ if (isset($_POST['eliminar'])) {
 
 
 // Consultar los registros
-$sql = "SELECT [id_tipo_Tarifa], [Tipo_Tarifa],[ValorContratista],[PorcContrastista],[horasExtras],[fecha_desde],[fecha_hasta],[bono],[porc_hhee],[tarifa_activa],[caja],[kilo] 
-FROM [dbo].[Dota_Tipo_Tarifa] ORDER BY [id_tipo_Tarifa] ASC" ;
+$sql = "SELECT t.[id_tipo_Tarifa], t.[Tipo_Tarifa], t.[ValorContratista], t.[PorcContrastista],
+               t.[horasExtras], t.[fecha_desde], t.[fecha_hasta], t.[bono], t.[porc_hhee],
+               t.[tarifa_activa], t.[caja], t.[kilo], t.[id_contratista],
+               c.nombre AS nombre_contratista
+        FROM [dbo].[Dota_Tipo_Tarifa] t
+        LEFT JOIN dbo.dota_contratista c ON c.id = t.id_contratista
+        ORDER BY t.[id_tipo_Tarifa] ASC";
 $query = sqlsrv_query($conn, $sql);
 
 
@@ -525,7 +525,20 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
                                                 </div>
                                             </div>
 
-                                            <button type="submit" name="guardar" class="btn btn-primary">Guardar</button>
+                                            <!-- Contratista (solo visible si Calculo Cajas está marcado) -->
+                                            <div class="row g-3 mt-1" id="div_contratista_nuevo" style="display:none">
+                                                <div class="form-group col-12 col-md-6">
+                                                    <label>Contratista (para calculo cajas)</label>
+                                                    <select class="form-select" name="id_contratista" id="sel_contratista_nuevo">
+                                                        <option value="">— Seleccionar —</option>
+                                                        <?php foreach ($contratistas_list as $ct): ?>
+                                                        <option value="<?= (int)$ct['id'] ?>"><?= htmlspecialchars($ct['nombre']) ?></option>
+                                                        <?php endforeach; ?>
+                                                    </select>
+                                                </div>
+                                            </div>
+
+                                            <button type="submit" name="guardar" class="btn btn-primary mt-3">Guardar</button>
                             </form>
 
                            
@@ -556,6 +569,7 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
                                                 <th>Estado Tarifa</th>
                                                 <th>Calculo Kilo</th>
                                                 <th>Calculo Caja</th>
+                                                <th>Contratista (cajas)</th>
                                                 <th style="width:180px;">Acciones</th>
                                             </tr>
                                             </thead>
@@ -644,6 +658,26 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
                                                 </td>
 
 
+                                                <!-- CONTRATISTA CAJAS -->
+                                                <td>
+                                                <?php if ((int)($row['caja'] ?? 0) === 1): ?>
+                                                    <select class="form-select form-select-sm"
+                                                            name="id_contratista_<?= $id ?>"
+                                                            form="form_edit_<?= $id ?>">
+                                                        <option value="">— Ninguno —</option>
+                                                        <?php foreach ($contratistas_list as $ct): ?>
+                                                        <option value="<?= (int)$ct['id'] ?>"
+                                                            <?= (int)($row['id_contratista'] ?? 0) === (int)$ct['id'] ? 'selected' : '' ?>>
+                                                            <?= htmlspecialchars($ct['nombre']) ?>
+                                                        </option>
+                                                        <?php endforeach; ?>
+                                                    </select>
+                                                <?php else: ?>
+                                                    <span class="text-muted small">—</span>
+                                                    <input type="hidden" name="id_contratista_<?= $id ?>" value="" form="form_edit_<?= $id ?>">
+                                                <?php endif; ?>
+                                                </td>
+
                                                 <!-- Acciones (form separado) -->
                                                 <td class="text-nowrap">
                                                 <form method="POST" id="form_edit_<?= $id ?>">
@@ -678,32 +712,30 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
   function toggleCalculo(origen) {
     const chkKilos = document.getElementById('kilo');
     const chkCajas = document.getElementById('cajas');
+    const divCont  = document.getElementById('div_contratista_nuevo');
 
     if (origen === 'kilos' && chkKilos && chkKilos.checked) {
       if (chkCajas) chkCajas.checked = false;
     }
-
     if (origen === 'cajas' && chkCajas && chkCajas.checked) {
       if (chkKilos) chkKilos.checked = false;
     }
-
     if (chkKilos && chkCajas && !chkKilos.checked && !chkCajas.checked) {
       if (origen === 'kilos') chkKilos.checked = true;
       if (origen === 'cajas') chkCajas.checked = true;
     }
+    if (divCont) divCont.style.display = (chkCajas && chkCajas.checked) ? '' : 'none';
   }
 
   document.addEventListener('DOMContentLoaded', function () {
     const chkKilos = document.getElementById('kilo');
     const chkCajas = document.getElementById('cajas');
+    const divCont  = document.getElementById('div_contratista_nuevo');
 
-    if (!chkKilos || !chkCajas) return; // elementos opcionales en la página
-    if (chkKilos.checked && chkCajas.checked) {
-      chkCajas.checked = false;
-    }
-    if (!chkKilos.checked && !chkCajas.checked) {
-      chkKilos.checked = true;
-    }
+    if (!chkKilos || !chkCajas) return;
+    if (chkKilos.checked && chkCajas.checked) chkCajas.checked = false;
+    if (!chkKilos.checked && !chkCajas.checked) chkKilos.checked = true;
+    if (divCont) divCont.style.display = chkCajas.checked ? '' : 'none';
   });
 </script>
 

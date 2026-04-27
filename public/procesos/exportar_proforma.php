@@ -55,8 +55,8 @@ foreach ($detalle as $d) {
             'filas'       => [],
             'tot_jorn'    => 0.0,
             'tot_hhee'    => 0.0,
-            'tot_vj'      => 0.0,  // valor jornadas (base_jorn + pct_jorn)
-            'tot_vh'      => 0.0,  // valor HHEE     (base_hhee + pct_hhee)
+            'tot_vj'      => 0.0,
+            'tot_vh'      => 0.0,
             'tot_total'   => 0.0,
         ];
     }
@@ -67,6 +67,30 @@ foreach ($detalle as $d) {
     $por_cont[$cid]['tot_vh']      += (float)$d['base_hhee'] + (float)$d['pct_hhee'];
     $por_cont[$cid]['tot_total']   += (float)$d['total'];
 }
+
+/* ── Descuentos por contratista ── */
+$desc_by_cont = [];
+$desc_total   = 0.0;
+try {
+    $ds = sqlsrv_query($conn,
+        "SELECT d.id_contratista, c.nombre AS contratista, d.valor, d.observacion
+         FROM dbo.dota_factura_descuento d
+         JOIN dbo.dota_contratista c ON c.id = d.id_contratista
+         WHERE d.id_factura = ?
+         ORDER BY d.id_contratista, d.id",
+        [$id_factura]);
+    if ($ds) {
+        while ($dr = sqlsrv_fetch_array($ds, SQLSRV_FETCH_ASSOC)) {
+            $cid = (int)$dr['id_contratista'];
+            if (!isset($desc_by_cont[$cid])) {
+                $desc_by_cont[$cid] = ['nombre' => $dr['contratista'], 'total' => 0.0, 'rows' => []];
+            }
+            $desc_by_cont[$cid]['total'] += (float)$dr['valor'];
+            $desc_by_cont[$cid]['rows'][] = ['valor' => (float)$dr['valor'], 'obs' => (string)($dr['observacion'] ?? '')];
+            $desc_total += (float)$dr['valor'];
+        }
+    }
+} catch (Throwable $ignore) {}
 
 /* ── DIARIO: consulta raw de asistencia para esta semana ── */
 $sql_diario = "
@@ -129,7 +153,8 @@ $sql_diario = "
                    porc_contratista, porc_hhee, CAST(NULL AS DECIMAL(18,2)), 1
             FROM dbo.Dota_Tarifa_Especiales
             WHERE fecha IS NOT NULL AND CAST(fecha AS DATE) = CAST(a.fecha AS DATE)
-        ) src ORDER BY src.prioridad
+        ) src
+        ORDER BY src.prioridad
     ) te
     WHERE a.semana = ? AND YEAR(a.fecha) = ?
       AND (a.jornada > 0 OR a.hhee > 0)
@@ -284,9 +309,18 @@ foreach ($hdrs as $i => $h) {
 $ws->getStyle('A4:F4')->applyFromArray(styleHeader([]));
 $ws->getRowDimension(4)->setRowHeight(20);
 
-$row = 5;
-$sum_start = $row;
-foreach ($por_cont as $cont) {
+$row        = 5;
+$grand_jorn = 0.0; $grand_hhee = 0.0;
+$grand_vj   = 0.0; $grand_vh   = 0.0; $grand_tot  = 0.0;
+
+$style_desc = [
+    'font'    => ['color' => ['argb' => 'FFC0392B'], 'italic' => true],
+    'fill'    => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFFFF0F0']],
+    'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FFAAAAAA']]],
+];
+
+foreach ($por_cont as $cid => $cont) {
+    // Fila empleador
     $ws->setCellValue('A' . $row, $cont['nombre']);
     $ws->setCellValue('B' . $row, $cont['tot_jorn']);
     $ws->setCellValue('C' . $row, $cont['tot_hhee']);
@@ -295,27 +329,67 @@ foreach ($por_cont as $cont) {
     $ws->setCellValue('F' . $row, $cont['tot_total']);
     $ws->getStyle("A{$row}:F{$row}")->applyFromArray(styleData());
     $ws->getStyle("B{$row}:F{$row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
-    foreach (['B','C'] as $c) {
-        $ws->getStyle("{$c}{$row}")->getNumberFormat()->setFormatCode($fmt_dec);
-    }
-    foreach (['D','E','F'] as $c) {
-        $ws->getStyle("{$c}{$row}")->getNumberFormat()->setFormatCode($fmt_num);
-    }
+    foreach (['B','C'] as $c) $ws->getStyle("{$c}{$row}")->getNumberFormat()->setFormatCode($fmt_dec);
+    foreach (['D','E','F'] as $c) $ws->getStyle("{$c}{$row}")->getNumberFormat()->setFormatCode($fmt_num);
+    $grand_jorn += $cont['tot_jorn']; $grand_hhee += $cont['tot_hhee'];
+    $grand_vj   += $cont['tot_vj'];   $grand_vh   += $cont['tot_vh'];
+    $grand_tot  += $cont['tot_total'];
     $row++;
+
+    // Filas de descuento de este empleador (justo debajo)
+    $dc = $desc_by_cont[$cid] ?? null;
+    if ($dc && $dc['total'] > 0) {
+        foreach ($dc['rows'] as $drow) {
+            $label = '  ↳ Descuento' . ($drow['obs'] ? ': ' . $drow['obs'] : '');
+            $ws->setCellValue('A' . $row, $label);
+            $ws->mergeCells("A{$row}:E{$row}");
+            $ws->setCellValue('F' . $row, -$drow['valor']);
+            $ws->getStyle("A{$row}:F{$row}")->applyFromArray($style_desc);
+            $ws->getStyle('F' . $row)->getNumberFormat()->setFormatCode($fmt_num);
+            $ws->getStyle('F' . $row)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+            $row++;
+        }
+        // Neto del empleador
+        $neto_cont = $cont['tot_total'] - $dc['total'];
+        $ws->setCellValue('A' . $row, '  Neto ' . $cont['nombre']);
+        $ws->mergeCells("A{$row}:E{$row}");
+        $ws->setCellValue('F' . $row, $neto_cont);
+        $ws->getStyle("A{$row}:F{$row}")->applyFromArray([
+            'font'    => ['bold' => true],
+            'fill'    => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFE8F5E9']],
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FFAAAAAA']]],
+        ]);
+        $ws->getStyle('F' . $row)->getNumberFormat()->setFormatCode($fmt_num);
+        $ws->getStyle('F' . $row)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        $row++;
+    }
 }
 
-// Total row
-$sum_end = $row - 1;
+// Fila TOTAL (acumulado manual)
 $ws->setCellValue('A' . $row, 'TOTAL');
-foreach (['B','C','D','E','F'] as $c) {
-    $ws->setCellValue("{$c}{$row}", "=SUM({$c}{$sum_start}:{$c}{$sum_end})");
-}
+$ws->setCellValue('B' . $row, $grand_jorn);
+$ws->setCellValue('C' . $row, $grand_hhee);
+$ws->setCellValue('D' . $row, $grand_vj);
+$ws->setCellValue('E' . $row, $grand_vh);
+$ws->setCellValue('F' . $row, $grand_tot);
 $ws->getStyle("A{$row}:F{$row}")->applyFromArray(styleTotal());
-foreach (['B','C'] as $c) {
-    $ws->getStyle("{$c}{$row}")->getNumberFormat()->setFormatCode($fmt_dec);
-}
-foreach (['D','E','F'] as $c) {
-    $ws->getStyle("{$c}{$row}")->getNumberFormat()->setFormatCode($fmt_num);
+foreach (['B','C'] as $c) $ws->getStyle("{$c}{$row}")->getNumberFormat()->setFormatCode($fmt_dec);
+foreach (['D','E','F'] as $c) $ws->getStyle("{$c}{$row}")->getNumberFormat()->setFormatCode($fmt_num);
+
+// Fila TOTAL NETO (si hay descuentos)
+if ($desc_total > 0) {
+    $row++;
+    $ws->setCellValue('A' . $row, 'TOTAL NETO');
+    $ws->mergeCells("A{$row}:E{$row}");
+    $ws->setCellValue('F' . $row, $grand_tot - $desc_total);
+    $ws->getStyle("A{$row}:F{$row}")->applyFromArray([
+        'font'      => ['bold' => true, 'color' => ['argb' => 'FFFFFFFF']],
+        'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FF1ABC9C']],
+        'borders'   => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FFAAAAAA']]],
+    ]);
+    $ws->getStyle('A' . $row)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
+    $ws->getStyle('F' . $row)->getNumberFormat()->setFormatCode($fmt_num);
+    $ws->getStyle('F' . $row)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
 }
 
 // Column widths
@@ -410,6 +484,37 @@ foreach ($por_cont as $cont) {
     }
     foreach (['F','G','H'] as $c) {
         $ws2->getStyle("{$c}{$row2}")->getNumberFormat()->setFormatCode($fmt_num);
+    }
+    $row2++;
+
+    // Descuentos de este contratista
+    $dc = $desc_by_cont[$cid] ?? null;
+    if ($dc && $dc['total'] > 0) {
+        foreach ($dc['rows'] as $drow) {
+            $ws2->setCellValue('A' . $row2, 'Descuento' . ($drow['obs'] ? ': ' . $drow['obs'] : ''));
+            $ws2->mergeCells("A{$row2}:G{$row2}");
+            $ws2->setCellValue('H' . $row2, -$drow['valor']);
+            $ws2->getStyle("A{$row2}:H{$row2}")->applyFromArray([
+                'font'    => ['color' => ['argb' => 'FFC0392B'], 'italic' => true],
+                'fill'    => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFFFF0F0']],
+                'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FFAAAAAA']]],
+            ]);
+            $ws2->getStyle('H' . $row2)->getNumberFormat()->setFormatCode($fmt_num);
+            $ws2->getStyle('H' . $row2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+            $row2++;
+        }
+        // Neto contratista
+        $neto_cont = $cont['tot_total'] - $dc['total'];
+        $ws2->setCellValue('A' . $row2, 'NETO ' . strtoupper($cont['nombre']));
+        $ws2->mergeCells("A{$row2}:G{$row2}");
+        $ws2->setCellValue('H' . $row2, $neto_cont);
+        $ws2->getStyle("A{$row2}:H{$row2}")->applyFromArray([
+            'font'    => ['bold' => true, 'color' => ['argb' => 'FFFFFFFF']],
+            'fill'    => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FF1ABC9C']],
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FFAAAAAA']]],
+        ]);
+        $ws2->getStyle('H' . $row2)->getNumberFormat()->setFormatCode($fmt_num);
+        $ws2->getStyle('H' . $row2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
     }
 
     // Column widths

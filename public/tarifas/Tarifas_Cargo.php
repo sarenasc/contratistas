@@ -376,9 +376,9 @@ $filtro_busqueda = $busqueda ? "WHERE C.cargo LIKE '%" . str_replace("'", "''", 
 $query_total_registros = sqlsrv_query($conn, "SELECT
  count(*) as total
 FROM dbo.Dota_Valor_Dotacion D
-JOIN dbo.Dota_Cargo C ON C.id_cargo = D.id_cargo
-JOIN dbo.Dota_Tipo_Tarifa T ON T.id_tipo_tarifa = D.id_tipo_tarifa
-JOIN dbo.dota_tipo_mo M ON M.id_mo = C.id_mo
+LEFT JOIN dbo.Dota_Cargo C ON C.id_cargo = D.id_cargo
+LEFT JOIN dbo.Dota_Tipo_Tarifa T ON T.id_tipo_tarifa = D.id_tipo_tarifa
+LEFT JOIN dbo.dota_tipo_mo M ON M.id_mo = C.id_mo
 LEFT JOIN dbo.dota_contratista CON ON CON.id = D.id_contratista $filtro_busqueda");
 if ($query_total_registros === false) {
     die(print_r(sqlsrv_errors(), true)); // Muestra los errores detallados de SQL Server
@@ -402,9 +402,9 @@ $query = sqlsrv_query($conn,"SELECT
   M.abrev,
   CON.nombre AS contratista_nombre
 FROM dbo.Dota_Valor_Dotacion D
-JOIN dbo.Dota_Cargo C ON C.id_cargo = D.id_cargo
-JOIN dbo.Dota_Tipo_Tarifa T ON T.id_tipo_tarifa = D.id_tipo_tarifa
-JOIN dbo.dota_tipo_mo M ON M.id_mo = C.id_mo
+LEFT JOIN dbo.Dota_Cargo C ON C.id_cargo = D.id_cargo
+LEFT JOIN dbo.Dota_Tipo_Tarifa T ON T.id_tipo_tarifa = D.id_tipo_tarifa
+LEFT JOIN dbo.dota_tipo_mo M ON M.id_mo = C.id_mo
 LEFT JOIN dbo.especie E on D.id_especie = E.id_especie
 LEFT JOIN dbo.dota_contratista CON ON CON.id = D.id_contratista
 $filtro_busqueda ORDER BY D.id OFFSET $offset ROWS FETCH NEXT $registros_por_pagina ROWS ONLY");

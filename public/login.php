@@ -27,12 +27,26 @@ if (isset($_POST['inicio'])) {
         $modulos[] = $m['modulo'];
     }
 
-    // Cargar áreas que puede aprobar
+    // Cargar áreas que puede aprobar: desde dota_usuario_areas Y desde dota_jefe_area
     $stmtA = sqlsrv_query($conn, "SELECT id_area FROM dbo.dota_usuario_areas WHERE id_usuario = ?", [$row['id_usuario']]);
     $areas = [];
     while ($stmtA && ($a = sqlsrv_fetch_array($stmtA, SQLSRV_FETCH_ASSOC))) {
         $areas[] = (int)$a['id_area'];
     }
+    // Cargar pares (area, turno) de dota_jefe_area nivel 1
+    // Si id_turno es NULL = aprueba esa área en todos los turnos
+    $area_turno_pairs = [];
+    $stmtJA = sqlsrv_query($conn,
+        "SELECT id_area, id_turno FROM dbo.dota_jefe_area
+         WHERE id_usuario = ? AND activo = 1 AND nivel_aprobacion = 1",
+        [$row['id_usuario']]);
+    while ($stmtJA && ($a = sqlsrv_fetch_array($stmtJA, SQLSRV_FETCH_ASSOC))) {
+        $id_a = (int)$a['id_area'];
+        $id_t = ($a['id_turno'] !== null) ? (int)$a['id_turno'] : null;
+        $area_turno_pairs[] = ['area' => $id_a, 'turno' => $id_t];
+        $areas[] = $id_a;
+    }
+    $areas = array_values(array_unique($areas));
 
     // Cargar cargos específicos que puede aprobar
     $stmtC = sqlsrv_query($conn, "SELECT id_cargo FROM dbo.dota_usuario_cargos WHERE id_usuario = ?", [$row['id_usuario']]);
@@ -54,6 +68,7 @@ if (isset($_POST['inicio'])) {
     $_SESSION['id_perfil']        = (int)$row['id_perfil'];
     $_SESSION['modulos']          = $modulos;
     $_SESSION['areas_aprobar']    = $areas;
+    $_SESSION['area_turno_pairs'] = $area_turno_pairs;
     $_SESSION['cargos_aprobar']   = $cargos;
     $_SESSION['nivel_aprobacion'] = $nivel;
 

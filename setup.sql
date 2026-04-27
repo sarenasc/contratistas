@@ -363,6 +363,21 @@ CREATE TABLE [dbo].[dota_turno] (
 );
 GO
 
+IF OBJECT_ID('dbo.dota_turno_detalle','U') IS NULL
+CREATE TABLE [dbo].[dota_turno_detalle] (
+    [id]           INT      IDENTITY(1,1) NOT NULL,
+    [id_turno]     INT      NOT NULL,
+    [dia_semana]   TINYINT  NOT NULL,
+    [hora_entrada] TIME(0)  NOT NULL,
+    [hora_salida]  TIME(0)  NOT NULL,
+    [activo]       BIT      NOT NULL CONSTRAINT [DF_dota_turno_detalle_activo] DEFAULT ((1)),
+    CONSTRAINT [PK_dota_turno_detalle] PRIMARY KEY ([id]),
+    CONSTRAINT [FK_dota_turno_detalle_turno] FOREIGN KEY ([id_turno]) REFERENCES [dbo].[dota_turno] ([id]) ON DELETE CASCADE,
+    CONSTRAINT [UQ_dota_turno_detalle_turno_dia] UNIQUE ([id_turno], [dia_semana]),
+    CONSTRAINT [CK_dota_turno_detalle_dia] CHECK ([dia_semana] BETWEEN 1 AND 7)
+);
+GO
+
 -- -------------------------------------------------------------
 -- dota_jefe_area
 -- id_usuario: vínculo con dota_usuarios (mismo registro de persona)

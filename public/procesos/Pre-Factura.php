@@ -42,15 +42,18 @@ try {
    TOTAL FACTURA = emp_jornada + emp_hhee + bono
 ───────────────────────────────────────── */
 
-$resultado    = [];
-$total_global = 0.0;   // suma de total_factura de todos los contratistas
+$resultado       = [];
+$resultado_cajas = [];
+$total_global    = 0.0;
+$bloqueado       = false;
+$bloqueado_info  = [];
 
 // Verificar lotes sin aprobación final para la semana/año seleccionados
 $lotes_sin_aprobar = [];
 if ($filtro_semana > 0 && $filtro_anio > 0) {
     $stmtLotes = sqlsrv_query($conn,
         "SELECT registro, estado, fecha_carga FROM dbo.dota_asistencia_lote
-         WHERE semana = ? AND anio = ? AND estado != 'listo_factura'
+         WHERE semana = ? AND anio = ? AND estado != 'listo_factura' AND ISNULL(activo, 1) = 1
          ORDER BY fecha_carga DESC",
         [$filtro_semana, $filtro_anio]
     );
@@ -65,15 +68,58 @@ if ($filtro_semana > 0 && $filtro_anio > 0) {
 
 if ($filtro_semana > 0 && $filtro_anio > 0 && !$flash_error && empty($lotes_sin_aprobar)) {
 
-    $params     = [$filtro_semana, $filtro_anio];
-    $whereContr = '';
+    $params         = [$filtro_semana, $filtro_anio];
+    $whereContr     = '';
+    $whereContrPend = '';
     if ($filtro_cont > 0) {
-        $whereContr = ' AND a.empleador = ?';
-        $params[]   = $filtro_cont;
+        $whereContr     = ' AND ac.empleador = ?';
+        $whereContrPend = ' AND id_contratista = ?';
+        $params[]       = $filtro_cont;
+    }
+    // Segunda mitad del UNION (jornadas_pendientes)
+    $params[] = $filtro_semana;
+    $params[] = $filtro_anio;
+    if ($filtro_cont > 0) {
+        $params[] = $filtro_cont;
     }
 
     $sql = "
+        WITH base AS (
+            SELECT
+                ac.id AS id_row,
+                ac.empleador, ac.cargo, ac.fecha, ac.jornada, ac.hhee, ac.especie,
+                ac.rut, ac.nombre,
+                ISNULL(tr.nombre_turno, '') AS turno,
+                CAST(0 AS BIT) AS es_pendiente,
+                ac.semana      AS semana_orig,
+                YEAR(ac.fecha) AS anio_orig
+            FROM dbo.dota_asistencia_carga ac
+            LEFT JOIN dbo.dota_turno tr ON tr.id = ac.turno
+            WHERE ac.semana = ? AND YEAR(ac.fecha) = ?
+              AND (ac.jornada > 0 OR ac.hhee > 0)
+              AND NOT EXISTS (
+                  SELECT 1 FROM dbo.dota_asistencia_lote l
+                  WHERE l.registro = ac.registro AND l.activo = 0
+              )
+              {$whereContr}
+
+            UNION ALL
+
+            SELECT
+                id AS id_row,
+                id_contratista AS empleador,
+                id_cargo       AS cargo,
+                fecha, jornada, hhee, especie, rut, nombre, turno,
+                CAST(1 AS BIT)  AS es_pendiente,
+                semana_original AS semana_orig,
+                anio_original   AS anio_orig
+            FROM dbo.dota_jornadas_pendientes
+            WHERE semana_factura = ? AND anio_factura = ?
+              AND (jornada > 0 OR hhee > 0)
+              {$whereContrPend}
+        )
         SELECT
+            a.id_row,
             a.empleador,
             c.nombre           AS contratista_nombre,
             c.valor_empresa,
@@ -86,6 +132,9 @@ if ($filtro_semana > 0 && $filtro_anio > 0 && !$flash_error && empty($lotes_sin_
             a.rut,
             a.nombre        AS trabajador,
             a.turno,
+            a.es_pendiente,
+            a.semana_orig,
+            a.anio_orig,
 
             /* — Tarifa regular — */
             tt.Tipo_tarifa       AS tar_nom,
@@ -104,8 +153,8 @@ if ($filtro_semana > 0 && $filtro_anio > 0 && !$flash_error && empty($lotes_sin_
             te.esp_porc_hhee,
             te.esp_bono
 
-        FROM dbo.dota_asistencia_carga a
-        LEFT JOIN dbo.dota_contratista c ON c.id        = a.empleador  -- trae nombre y valor_empresa
+        FROM base a
+        LEFT JOIN dbo.dota_contratista c ON c.id        = a.empleador
         LEFT JOIN dbo.Dota_Cargo dc       ON dc.id_cargo = a.cargo
 
         /* Tarifa regular: TOP 1 por cargo, prefiere especie específica */
@@ -177,10 +226,6 @@ if ($filtro_semana > 0 && $filtro_anio > 0 && !$flash_error && empty($lotes_sin_
             ) src
             ORDER BY src.prioridad
         ) te
-        WHERE a.semana = ?
-          AND YEAR(a.fecha) = ?
-          AND (a.jornada > 0 OR a.hhee > 0)
-          $whereContr
         ORDER BY c.nombre, dc.cargo, a.fecha, a.nombre
     ";
 
@@ -311,28 +356,32 @@ if ($filtro_semana > 0 && $filtro_anio > 0 && !$flash_error && empty($lotes_sin_
 
             /* Detalle fila */
             $resultado[$cid]['filas'][] = [
-                'fecha'      => $fecha_str,
-                'rut'        => $r['rut'],
-                'trabajador' => $r['trabajador'],
-                'cargo'      => $r['cargo_nombre'] ?? '—',
-                'turno'      => $r['turno'],
-                'jornada'    => $jornada,
-                'hhee'       => $hhee,
-                'v_dia'      => $v_dia,
-                'v_hhee'     => $v_hhee_tar,
-                'porc_jorn'  => $porc_jorn,
-                'porc_hhee'  => $porc_hhee,
-                'base_jorn'  => $base_jorn,
-                'base_hhee'  => $base_hhee,
-                'emp_jorn'   => $emp_jorn,
-                'emp_hhee'   => $emp_hhee,
-                'pct_jorn'   => $pct_jorn,
-                'pct_hhee'   => $pct_hhee,
-                'bono'       => $bono,
-                'total_fac'  => $total_fac,
-                'tar_nom'    => $r['tar_nom'] ?? ($esp ? $r['esp_nom'] : '—'),
-                'especial'   => $esp,
-                'esp_nom'    => $r['esp_nom'] ?? '',
+                'id_row'       => (int)$r['id_row'],
+                'fecha'        => $fecha_str,
+                'rut'          => $r['rut'],
+                'trabajador'   => $r['trabajador'],
+                'cargo'        => $r['cargo_nombre'] ?? '—',
+                'turno'        => $r['turno'],
+                'jornada'      => $jornada,
+                'hhee'         => $hhee,
+                'v_dia'        => $v_dia,
+                'v_hhee'       => $v_hhee_tar,
+                'porc_jorn'    => $porc_jorn,
+                'porc_hhee'    => $porc_hhee,
+                'base_jorn'    => $base_jorn,
+                'base_hhee'    => $base_hhee,
+                'emp_jorn'     => $emp_jorn,
+                'emp_hhee'     => $emp_hhee,
+                'pct_jorn'     => $pct_jorn,
+                'pct_hhee'     => $pct_hhee,
+                'bono'         => $bono,
+                'total_fac'    => $total_fac,
+                'tar_nom'      => $r['tar_nom'] ?? ($esp ? $r['esp_nom'] : '—'),
+                'especial'     => $esp,
+                'esp_nom'      => $r['esp_nom'] ?? '',
+                'es_pendiente' => (bool)$r['es_pendiente'],
+                'semana_orig'  => (int)($r['semana_orig']  ?? 0),
+                'anio_orig'    => (int)($r['anio_orig']    ?? 0),
             ];
 
             $total_global += $total_fac;
@@ -371,7 +420,69 @@ if ($filtro_semana > 0 && $filtro_anio > 0 && !$flash_error && empty($lotes_sin_
         }
     } catch (Throwable $ignore) {}
 
-    /* ── Descuentos del período ── */
+    /* ── Verificar si la semana/contratista está cerrada ── */
+    $bloqueado      = false;
+    $bloqueado_info = [];   // proformas cerradas que bloquean
+    foreach ($proformasSemana as $pf) {
+        if ($pf['estado'] !== 'cerrado') continue;
+        if ($filtro_cont > 0) {
+            // Solo bloquea si el contratista filtrado está incluido en esa proforma
+            $chk = sqlsrv_query($conn,
+                "SELECT 1 FROM dbo.dota_factura_detalle WHERE id_factura=? AND id_contratista=?",
+                [(int)$pf['id'], $filtro_cont]);
+            if (!$chk || !sqlsrv_fetch($chk)) continue;
+        }
+        $bloqueado        = true;
+        $bloqueado_info[] = $pf;
+    }
+    if ($bloqueado) {
+        $resultado    = [];
+        $total_global = 0.0;
+    }
+
+    /* ── Producción por cajas del período ── */
+    $resultado_cajas = [];
+    if (!$bloqueado) {
+        $paramsCaja = [$filtro_semana, $filtro_anio];
+        $whereCaja  = '';
+        if ($filtro_cont > 0) { $whereCaja = ' AND pc.id_contratista = ?'; $paramsCaja[] = $filtro_cont; }
+        $stC = sqlsrv_query($conn,
+            "SELECT pc.id_contratista, c.nombre AS contratista_nombre,
+                    t.Tipo_Tarifa, t.ValorContratista, t.PorcContrastista, t.bono,
+                    SUM(pc.cajas) AS total_cajas
+             FROM dbo.dota_produccion_cajas pc
+             JOIN dbo.dota_contratista   c ON c.id             = pc.id_contratista
+             JOIN dbo.Dota_tipo_tarifa   t ON t.id_tipo_tarifa = pc.id_tipo_tarifa
+             WHERE pc.semana = ? AND pc.anio = ? $whereCaja
+             GROUP BY pc.id_contratista, c.nombre, t.Tipo_Tarifa,
+                      t.ValorContratista, t.PorcContrastista, t.bono",
+            $paramsCaja
+        );
+        if ($stC) while ($rc = sqlsrv_fetch_array($stC, SQLSRV_FETCH_ASSOC)) {
+            $cid   = (int)$rc['id_contratista'];
+            $cajas = (float)$rc['total_cajas'];
+            $vd    = (float)$rc['ValorContratista'];
+            $porc  = (float)$rc['PorcContrastista'];
+            $bono  = (float)$rc['bono'];
+            $base  = $cajas * $vd;
+            $pct   = $base * $porc;
+            $total = $base + $pct + $bono;
+            $resultado_cajas[$cid] = [
+                'nombre'     => $rc['contratista_nombre'],
+                'tipo_tar'   => $rc['Tipo_Tarifa'],
+                'cajas'      => $cajas,
+                'val_caja'   => $vd,
+                'porc'       => $porc,
+                'bono'       => $bono,
+                'base'       => $base,
+                'pct'        => $pct,
+                'total'      => $total,
+            ];
+            $total_global += $total;
+        }
+    }
+
+    /* ── Descuentos del período (desde dota_factura_descuento) ── */
     $descuentos = [];
     if (!empty($resultado)) {
         $ids   = array_keys($resultado);
@@ -379,12 +490,13 @@ if ($filtro_semana > 0 && $filtro_anio > 0 && !$flash_error && empty($lotes_sin_
         $pDesc = array_merge($ids, [$filtro_semana, $filtro_anio]);
         try {
             $sd = db_query($conn,
-                "SELECT id_contratista, SUM(valor) AS total
-                 FROM dbo.dota_descuento
-                 WHERE id_contratista IN ($ph)
-                   AND DATEPART(iso_week, fecha) = ?
-                   AND YEAR(fecha) = ?
-                 GROUP BY id_contratista",
+                "SELECT fd.id_contratista, SUM(fd.valor) AS total
+                 FROM dbo.dota_factura_descuento fd
+                 JOIN dbo.dota_factura f ON f.id = fd.id_factura
+                 WHERE fd.id_contratista IN ($ph)
+                   AND f.semana = ?
+                   AND f.anio   = ?
+                 GROUP BY fd.id_contratista",
                 $pDesc, "Descuentos");
             while ($rd = sqlsrv_fetch_array($sd, SQLSRV_FETCH_ASSOC))
                 $descuentos[(int)$rd['id_contratista']] = (float)$rd['total'];
@@ -404,29 +516,6 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
 
 <?php if ($flash_error): ?>
 <div class="alert alert-danger"><?= htmlspecialchars($flash_error) ?></div>
-<?php endif; ?>
-
-<?php if (!empty($lotes_sin_aprobar)): ?>
-<div class="alert alert-danger">
-    <strong>Atención:</strong> Hay <?= count($lotes_sin_aprobar) ?> lote(s) de la semana <?= $filtro_semana ?>/<?= $filtro_anio ?>
-    que aún no tienen aprobación final. No se puede generar la Pre-Factura hasta que todos estén en estado <strong>listo_factura</strong>.
-    <table class="table table-sm table-bordered mt-2 mb-0 bg-white">
-        <thead><tr><th>Lote</th><th>Estado</th><th>Fecha carga</th><th></th></tr></thead>
-        <tbody>
-        <?php foreach ($lotes_sin_aprobar as $ls): ?>
-        <tr>
-            <td><small><?= htmlspecialchars($ls['registro']) ?></small></td>
-            <td><span class="badge bg-<?= $ls['estado'] === 'pendiente' ? 'warning text-dark' : 'danger' ?>"><?= htmlspecialchars($ls['estado']) ?></span></td>
-            <td><?= htmlspecialchars($ls['fecha_carga']) ?></td>
-            <td>
-                <a href="<?= BASE_URL ?>/aprobacion/detalle_asistencia.php?registro=<?= urlencode($ls['registro']) ?>"
-                   class="btn btn-outline-secondary btn-sm">Ver</a>
-            </td>
-        </tr>
-        <?php endforeach; ?>
-        </tbody>
-    </table>
-</div>
 <?php endif; ?>
 
 <!-- ══════════ FILTROS ══════════ -->
@@ -472,7 +561,54 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
   &nbsp;|&nbsp; <span class="text-warning fw-semibold">⚡ fila amarilla = tarifa especial del día</span>
 </div>
 
-<?php if (empty($resultado) && $filtro_semana > 0 && !$flash_error): ?>
+<?php if (!empty($lotes_sin_aprobar)): ?>
+<div class="alert alert-danger">
+    <strong>Atención:</strong> Hay <?= count($lotes_sin_aprobar) ?> lote(s) de la semana <?= $filtro_semana ?>/<?= $filtro_anio ?>
+    que aún no tienen aprobación final. No se puede generar la Pre-Factura hasta que todos estén en estado <strong>listo_factura</strong>.
+    <table class="table table-sm table-bordered mt-2 mb-0 bg-white">
+        <thead><tr><th>Lote</th><th>Estado</th><th>Fecha carga</th><th></th></tr></thead>
+        <tbody>
+        <?php foreach ($lotes_sin_aprobar as $ls): ?>
+        <tr>
+            <td><small><?= htmlspecialchars($ls['registro']) ?></small></td>
+            <td><span class="badge bg-<?= $ls['estado'] === 'pendiente' ? 'warning text-dark' : 'danger' ?>"><?= htmlspecialchars($ls['estado']) ?></span></td>
+            <td><?= htmlspecialchars($ls['fecha_carga']) ?></td>
+            <td>
+                <a href="<?= BASE_URL ?>/aprobacion/detalle_asistencia.php?registro=<?= urlencode($ls['registro']) ?>"
+                   class="btn btn-outline-secondary btn-sm">Ver</a>
+            </td>
+        </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
+</div>
+<?php elseif ($bloqueado && !empty($bloqueado_info)): ?>
+<div class="alert alert-danger d-flex gap-3 align-items-start">
+  <span style="font-size:2rem">🔒</span>
+  <div>
+    <strong>Semana <?= $filtro_semana ?>/<?= $filtro_anio ?> cerrada — no se pueden ver ni modificar los datos.</strong><br>
+    <?php if ($filtro_cont > 0): ?>
+      El contratista seleccionado está incluido en una proforma cerrada.
+    <?php else: ?>
+      Existen proformas cerradas para esta semana.
+    <?php endif; ?>
+    <ul class="mb-0 mt-2">
+      <?php foreach ($bloqueado_info as $bi): ?>
+        <li>
+          Proforma v<?= $bi['version'] ?>
+          — creada <?= htmlspecialchars($bi['fecha_str']) ?>
+          — neto <?= '$' . number_format((float)$bi['total_neto'], 0, ',', '.') ?>
+          <?php if ($bi['contratistas']): ?>
+            (<?= htmlspecialchars($bi['contratistas']) ?>)
+          <?php endif; ?>
+        </li>
+      <?php endforeach; ?>
+    </ul>
+    <a href="proformas.php?semana=<?= $filtro_semana ?>&anio=<?= $filtro_anio ?>"
+       class="btn btn-outline-danger btn-sm mt-2">Ver proformas</a>
+  </div>
+</div>
+<?php elseif (empty($resultado) && $filtro_semana > 0 && !$flash_error): ?>
 <div class="alert alert-info">No hay registros de asistencia para semana <?= $filtro_semana ?> / <?= $filtro_anio ?>.</div>
 <?php endif; ?>
 
@@ -841,7 +977,7 @@ foreach ($resultado as $cid2 => $d2) {
           Ver / ocultar
         </button>
       </div>
-      <div id="det<?= $idx ?>" class="collapse">
+      <div id="det<?= $idx ?>" class="collapse show">
         <div class="table-responsive">
           <?php if ($datos['valor_empresa']): ?>
           <!-- Detalle simplificado: solo cantidades (los montos vienen de los inputs arriba) -->
@@ -855,18 +991,30 @@ foreach ($resultado as $cid2 => $d2) {
                 <th>Turno</th>
                 <th class="text-end">Jorn.</th>
                 <th class="text-end">HHEE</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
               <?php foreach ($datos['filas'] as $f): ?>
-              <tr class="<?= $f['especial'] ? 'table-warning' : '' ?>">
-                <td><?= htmlspecialchars($f['fecha']) ?></td>
+              <tr class="<?= $f['especial'] ? 'table-warning' : ($f['es_pendiente'] ? 'table-info' : '') ?>">
+                <td>
+                  <?= htmlspecialchars($f['fecha']) ?>
+                  <?php if ($f['es_pendiente']): ?>
+                  <br><span class="badge bg-info text-dark" style="font-size:.7rem">S<?= $f['semana_orig'] ?>/<?= $f['anio_orig'] ?></span>
+                  <?php endif; ?>
+                </td>
                 <td><?= htmlspecialchars($f['rut']) ?></td>
                 <td><?= htmlspecialchars($f['trabajador']) ?></td>
                 <td><?= htmlspecialchars($f['cargo']) ?></td>
                 <td><?= htmlspecialchars($f['turno']) ?></td>
                 <td class="text-end"><?= fmtd($f['jornada']) ?></td>
                 <td class="text-end"><?= fmtd($f['hhee']) ?></td>
+                <td>
+                  <button class="btn btn-outline-danger btn-sm py-0 px-1 btn-elim-fila"
+                          data-id="<?= $f['id_row'] ?>"
+                          data-pendiente="<?= $f['es_pendiente'] ? 1 : 0 ?>"
+                          title="Eliminar fila">✕</button>
+                </td>
               </tr>
               <?php endforeach; ?>
             </tbody>
@@ -891,12 +1039,18 @@ foreach ($resultado as $cid2 => $d2) {
                 <th class="text-end bg-primary bg-opacity-25">% HHEE</th>
                 <th class="text-end bg-success bg-opacity-25 fw-bold">Total</th>
                 <th>Tarifa</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
               <?php foreach ($datos['filas'] as $f): ?>
-              <tr class="<?= $f['especial'] ? 'table-warning' : '' ?>">
-                <td><?= htmlspecialchars($f['fecha']) ?></td>
+              <tr class="<?= $f['especial'] ? 'table-warning' : ($f['es_pendiente'] ? 'table-info' : '') ?>">
+                <td>
+                  <?= htmlspecialchars($f['fecha']) ?>
+                  <?php if ($f['es_pendiente']): ?>
+                  <br><span class="badge bg-info text-dark" style="font-size:.7rem">S<?= $f['semana_orig'] ?>/<?= $f['anio_orig'] ?></span>
+                  <?php endif; ?>
+                </td>
                 <td><?= htmlspecialchars($f['rut']) ?></td>
                 <td><?= htmlspecialchars($f['trabajador']) ?></td>
                 <td><?= htmlspecialchars($f['cargo']) ?></td>
@@ -917,6 +1071,12 @@ foreach ($resultado as $cid2 => $d2) {
                   <?= htmlspecialchars($f['tar_nom']) ?>
                   <?php endif; ?>
                 </td>
+                <td>
+                  <button class="btn btn-outline-danger btn-sm py-0 px-1 btn-elim-fila"
+                          data-id="<?= $f['id_row'] ?>"
+                          data-pendiente="<?= $f['es_pendiente'] ? 1 : 0 ?>"
+                          title="Eliminar fila">✕</button>
+                </td>
               </tr>
               <?php endforeach; ?>
             </tbody>
@@ -930,6 +1090,53 @@ foreach ($resultado as $cid2 => $d2) {
 </div><!-- /accordion-item -->
 <?php endforeach; ?>
 </div><!-- /accordion -->
+
+<!-- ══════════ SECCIÓN CAJAS ══════════ -->
+<?php if (!empty($resultado_cajas)): ?>
+<div class="card shadow-sm mb-4">
+  <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
+    <span>Producción por Cajas — Semana <?= $filtro_semana ?>/<?= $filtro_anio ?></span>
+    <a href="carga_cajas.php?semana=<?= $filtro_semana ?>&anio=<?= $filtro_anio ?>"
+       class="btn btn-sm btn-outline-secondary">Editar cajas</a>
+  </div>
+  <div class="card-body p-0">
+    <table class="table table-sm table-bordered mb-0">
+      <thead class="table-dark">
+        <tr>
+          <th>Contratista</th>
+          <th>Tarifa</th>
+          <th class="text-end">Cajas</th>
+          <th class="text-end">Val/Caja</th>
+          <th class="text-end bg-secondary bg-opacity-25">Base</th>
+          <th class="text-end bg-primary bg-opacity-25">% Contratista</th>
+          <th class="text-end">Bono</th>
+          <th class="text-end fw-bold bg-success bg-opacity-25">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+      <?php foreach ($resultado_cajas as $rc): ?>
+        <tr>
+          <td><?= htmlspecialchars($rc['nombre']) ?></td>
+          <td class="small text-muted"><?= htmlspecialchars($rc['tipo_tar']) ?></td>
+          <td class="text-end"><?= number_format($rc['cajas'], 2, ',', '.') ?></td>
+          <td class="text-end"><?= fmt($rc['val_caja']) ?></td>
+          <td class="text-end bg-secondary bg-opacity-10"><?= fmt($rc['base']) ?></td>
+          <td class="text-end bg-primary bg-opacity-10"><?= fmt($rc['pct']) ?></td>
+          <td class="text-end"><?= $rc['bono'] > 0 ? fmt($rc['bono']) : '—' ?></td>
+          <td class="text-end fw-bold bg-success bg-opacity-10"><?= fmt($rc['total']) ?></td>
+        </tr>
+      <?php endforeach; ?>
+      </tbody>
+      <tfoot class="table-secondary fw-semibold">
+        <tr>
+          <td colspan="7" class="text-end">Total cajas</td>
+          <td class="text-end"><?= fmt(array_sum(array_column($resultado_cajas,'total'))) ?></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+<?php endif; ?>
 
 <!-- ══════════ PANEL GUARDAR PROFORMA ══════════ -->
 <?php
@@ -1347,6 +1554,36 @@ foreach ($resultado as $cid2 => $d2) {
       msg.innerHTML = '<div class="alert alert-danger py-1 mb-0">Error de red</div>';
     });
   });
+  /* ══════════ ELIMINAR FILA ══════════ */
+  document.querySelectorAll('.btn-elim-fila').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var origen = parseInt(btn.dataset.pendiente) === 1 ? 'jornada pendiente' : 'archivo asistencia';
+      if (!confirm('¿Eliminar esta fila del ' + origen + '? Esta acción no se puede deshacer.')) return;
+      btn.disabled = true;
+      fetch('prefactura_eliminar.php', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id:           parseInt(btn.dataset.id),
+          es_pendiente: parseInt(btn.dataset.pendiente) === 1,
+        })
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(res) {
+        if (res.ok) {
+          location.reload();
+        } else {
+          alert(res.error || 'Error al eliminar.');
+          btn.disabled = false;
+        }
+      })
+      .catch(function() {
+        alert('Error de red.');
+        btn.disabled = false;
+      });
+    });
+  });
+
 })();
 </script>
 

@@ -1,0 +1,131 @@
+Registro de trabajo - 2026-04-27
+
+1. Diagnostico inicial de huella desde el PC
+- Se reviso `public/reloj/trabajadores.php`.
+- Se identifico que el boton de captura llamaba a `public/reloj/capturar_huella_ajax.php`.
+- Ese AJAX ejecutaba `scripts/reloj/capturar_huella.py`.
+- Se probó captura con DigitalPersona / WBF y el lector encendia, capturaba sample y creaba feature set, pero la huella no quedaba utilizable en los relojes.
+- Se verifico que el mapa de huella generado en el PC no era compatible con los relojes ZK.
+- Se descarto seguir con ese flujo porque no se efectuaría.
+
+2. Verificacion de la huella del usuario
+- Se reviso el usuario `15995885K SERGIO ARENAS`.
+- La base de datos tenia `huella_template` guardada.
+- En los relojes existian registros `fid=0`, pero el reloj no la aceptaba como una huella valida para verificacion.
+- Se concluyo que la huella capturada en el PC no servia para enrolarla en los relojes.
+
+3. Cambio de estrategia
+- Se dejo de intentar generar huella en el PC para subirla a los relojes.
+- Se implemento la lectura de huellas ya registradas en los relojes y su consolidacion en la aplicacion.
+
+4. Lectura de huellas desde relojes
+- Se creo `scripts/reloj/sync_huellas_relojes.py`.
+- Ese script lee los templates de huella de los relojes activos y los guarda en `dbo.reloj_huella_cache`.
+- Se agrego `PY_SYNC_HUELLAS` en `scripts/reloj/_rutas.php`.
+- Se agrego la accion `sync_huellas` en `public/reloj/sync_stream.php`.
+- En `public/reloj/trabajadores.php` se mostro la huella por reloj con el indicador `Reloj X/N`.
+- Se agrego el boton `Actualizar huellas relojes` para refrescar la informacion desde los relojes.
+
+5. Limpieza de la captura por PC
+- Se elimino toda la funcionalidad de captura/subida desde el PC.
+- Se retiro el boton y el flujo de `Capturar huella` de `public/reloj/trabajadores.php`.
+- Se elimino `public/reloj/capturar_huella_ajax.php`.
+- Se eliminaron estos archivos y pruebas:
+  - `scripts/reloj/capturar_huella.py`
+  - `scripts/reloj/capturar_huella_task.ps1`
+  - `scripts/reloj/CapturarHuellaDp.cs`
+  - `scripts/reloj/CapturarHuellaDp.exe`
+  - `scripts/reloj/probar_huella_admin.ps1`
+  - `scripts/reloj/registrar_tarea_huella.ps1`
+  - `scripts/reloj/subir_huella_zk.py`
+  - `scripts/reloj/test_proc_open_huella.php`
+  - `scripts/reloj/verificar_huella_usuario.py`
+  - carpeta `Huellero`
+  - archivos temporales y logs de prueba relacionados
+- Se elimino de SQL Server la columna `dbo.reloj_trabajador.huella_template`.
+- Se limpio todo lo agregado por ese intento para no llenar el proyecto con basura.
+
+6. Tarea programada
+- Se intento borrar `ContratistaHuellaCapture`, pero Windows devolvio `Acceso denegado`.
+- El borrado debe ejecutarse manualmente con permisos de administrador si aun existe la tarea:
+  `schtasks /Delete /TN ContratistaHuellaCapture /F`
+
+7. Mejora de asistencia
+- Se agregaron `hora_entrada` y `hora_salida` a `dbo.dota_asistencia_carga`.
+- Se actualizo `public/procesos/editar_asistencia.php` para guardar esas horas al importar y permitir editarlas en el desplegable `+`.
+- Se agregaron esas horas a las vistas de aprobacion:
+  - `public/aprobacion/detalle_asistencia.php`
+  - `public/aprobacion/bandeja_jefe.php`
+  - `public/aprobacion/bandeja_operaciones.php`
+
+8. Estado final (parte 1 - manana)
+- Ya no existe captura de huella desde el PC en la aplicacion.
+- Se conserva solo la lectura de huellas de los relojes.
+- La tabla de trabajadores muestra la presencia de huellas en relojes.
+- La asistencia ahora guarda y permite editar hora de entrada y salida.
+
+9. Fixes en Pre-Factura y Pre-Factura (tarde)
+- Error SQL `dbo.Dota_Tarifa_Excluidos` (tabla inexistente): eliminado el bloque
+  `WHERE NOT EXISTS` que la referenciaba en `Pre-Factura.php` y `exportar_proforma.php`.
+- Lotes eliminados logicamente (activo=0) bloqueaban Pre-Factura: cambiado el filtro
+  de lotes a `ISNULL(activo,1)=1` para ignorarlos.
+- Lote inicial de `paso2_chunk.php` cambiado de `estado='borrador'` a `estado='pendiente'`
+  para que entre correctamente al flujo de aprobacion (bandeja_jefe filtra por 'pendiente').
+- `editar_asistencia.php` (importacion desde reloj): el INSERT en `dota_asistencia_carga`
+  no incluia `semana` ni `empleador`. Corregido:
+  - Se agrego `t.id_contratista` al SELECT del reloj.
+  - Se guarda como `id_contratista` en el array agrupado.
+  - El INSERT ahora incluye `semana` (del formulario) y `empleador` (id_contratista del trabajador).
+- Pre-Factura: registros de lotes eliminados logicamente (activo=0) seguian
+  apareciendo en el calculo. Fix: agregado `AND NOT EXISTS (SELECT 1 FROM
+  dbo.dota_asistencia_lote l WHERE l.registro=ac.registro AND l.activo=0)` al CTE.
+
+10. Modulo de administracion - Eliminar Documentos
+- Creada carpeta `public/admin/` y archivo `public/admin/eliminar_documentos.php`.
+- Solo accesible para administradores (es_admin()).
+- Tab Proformas: lista por semana/anio, eliminacion en cascada
+  (dota_factura_descuento → dota_factura_detalle → dota_factura). Bloqueado si cerrada.
+- Tab Lotes de Asistencia: lista por semana/anio, eliminacion fisica
+  (dota_asistencia_aprobacion → dota_asistencia_carga → dota_asistencia_lote).
+  Bloqueado si semana tiene proforma con estado='cerrado'.
+- Agregado enlace "Administracion → Eliminar Documentos" en navbar (solo admin).
+- `gestionar_lotes.php`: botones de cambio de estado bloqueados cuando la semana
+  del lote ya tiene una proforma generada (cualquier estado). Se muestra badge
+  "Proforma" y texto "Bloqueado — hay proforma" en lugar de los botones.
+
+11. Migracion de semanas 13 y 17 desde proforma_contratista → Fact_contratista
+- Las dos bases usan el mismo SQL Server (172.20.20.5) pero diferentes BD.
+- Contratistas tienen IDs distintos: en produccion id+1 = id en Fact_contratista.
+- Cargos y areas con IDs distintos: mapeados por nombre (COLLATE Modern_Spanish_CI_AS).
+- Turnos: mismos IDs en ambas bases.
+- Se migraron proformas id=6 (sem13) y id=7 (sem17) → nuevos ids 1006 y 1007.
+- 77 filas de detalle y 7 descuentos migrados con contratista remapeado.
+- 980 registros de asistencia (228 sem13 + 752 sem17) migrados a dota_asistencia_carga.
+- 2 lotes creados en dota_asistencia_lote con estado='listo_factura', activo=1.
+- Script reutilizable: `C:\Users\sarenas\OneDrive\Almahue\Python\Desarrollos\
+  Contratistas\migrar_semana.py`. Cambia solo SEMANA y ANIO al inicio.
+
+12. Eliminar marcaciones desde marcaciones.php
+- Nuevo script `scripts/reloj/eliminar_marcacion.py`:
+  - Args: <id_numero> <fecha YYYY-MM-DD>
+  - Borra de dbo.reloj_marcacion WHERE id_numero=? AND DATE(fecha_hora)=?
+  - Conecta a cada reloj activo via pyzk, descarga todas las marcaciones,
+    separa las del trabajador/fecha a eliminar, limpia el dispositivo
+    y reescribe las restantes con `zk_conn.new_attendance()`.
+  - Si el firmware no soporta reescritura (AttributeError), el dispositivo queda
+    limpio y las marcaciones restantes se re-sincronizan en el proximo ciclo
+    automatico (sync_relojes.py usa MERGE, no vuelven a insertar duplicados).
+  - Salida: JSON {ok, db, relojes:[...]}
+- Nuevo endpoint `public/reloj/eliminar_marcacion_ajax.php`:
+  - POST: id_numero, fecha
+  - Llama al script Python con shell_exec, parsea la ultima linea como JSON.
+- `public/reloj/marcaciones.php`:
+  - Boton 🗑 por fila (btn-eliminar-marca) con data-id-numero y data-fecha.
+  - Modal de confirmacion (modalEliminarMarca) con spinner mientras procesa.
+  - Tras exito muestra resultado por reloj y recarga la pagina en 2.5s.
+- `scripts/reloj/_rutas.php`: agregada constante PY_ELIMINAR_MARC.
+
+NOTA SYNC: sync_relojes.py usa MERGE con clave (id_dispositivo+id_numero+fecha_hora).
+Si el registro fue borrado del reloj y de la BD, el proximo sync no lo vuelve a insertar.
+Si el firmware no soporta reescritura y el reloj queda limpio, el sync re-inserta
+las marcaciones restantes desde el propio reloj en el siguiente ciclo.

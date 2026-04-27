@@ -41,7 +41,7 @@ if (isset($_POST['eliminar'])) {
 // Consultar los registros
 $sql = "SELECT [id], [razon_social], [rut], [nombre], [cod_fact], [valor_empresa] FROM [dbo].[dota_contratista]";
 $query = sqlsrv_query($conn, $sql);
-$title = "Tipo Tarifas";
+$title = "Contratistas";
 include __DIR__ . '/../partials/header.php';
 include __DIR__ . '/../partials/navbar_wrapper.php';
 
@@ -125,7 +125,8 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
                             <td>
                                 <input type="hidden" name="id" value="<?php echo $row['id']; ?>">
                                 <button type="submit" name="editar" class="btn btn-warning btn-sm">Editar</button>
-                                <button type="submit" name="eliminar" class="btn btn-danger btn-sm">Eliminar</button>
+                                <button type="submit" name="eliminar" class="btn btn-danger btn-sm"
+                                        onclick="return confirm('¿Eliminar este contratista?')">Eliminar</button>
                             </td>
                         </form>
                     </tr>

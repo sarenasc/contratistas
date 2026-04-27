@@ -143,6 +143,7 @@ try {
             'pct'      => 100,
             'inserted' => $inserted,
             'total'    => $totalRows,
+            'registro' => $archivo,
             'msg'      => "Carga completada. Registros insertados: {$inserted}",
         ]);
     } else {
