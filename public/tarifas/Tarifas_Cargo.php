@@ -8,7 +8,8 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
 $username = nombre_usuario();
 
 if (!$conn) {
-    die(print_r(sqlsrv_errors(), true));
+    error_log("DB connection failed: " . db_errors_to_string());
+    die("Error de conexión. Contacte al administrador.");
 }
 
 // Consultas para llenar los combobox
@@ -67,14 +68,13 @@ if (isset($_POST['editar'])) {
     $contratista_val = $id_contratista > 0 ? $id_contratista : null;
 
     $sql = "UPDATE dbo.Dota_Valor_Dotacion SET id_cargo = ?, id_especie = ?, id_tipo_tarifa = ?, id_contratista = ? WHERE id = ?";
-    sqlsrv_query($conn, $sql, [$cargo, $especie, $tipo_tarifa, $contratista_val, $id]);
+    db_query($conn, $sql, [$cargo, $especie, $tipo_tarifa, $contratista_val, $id], 'UPDATE Valor Dotacion');
 }
 
 // Eliminar un registro
 if (isset($_POST['eliminar'])) {
     $id_tipo = (int)$_POST['id_tipo'];
-    $sql     = "DELETE FROM [dbo].[Dota_Valor_Dotacion] WHERE id = ?";
-    sqlsrv_query($conn, $sql, [$id_tipo]);
+    db_query($conn, "DELETE FROM [dbo].[Dota_Valor_Dotacion] WHERE id = ?", [$id_tipo], 'DELETE Valor Dotacion');
 }
 
 // ── Carga masiva desde Excel ─────────────────────────────────────────────────
@@ -116,26 +116,26 @@ if (isset($_POST['cargar_excel']) && isset($_FILES['archivo_excel']) && $_FILES[
 
         // Pre-cargar catálogos en mapas UPPER → id
         $mapCargo = [];
-        $q = sqlsrv_query($conn, "SELECT id_cargo, cargo FROM dbo.Dota_Cargo");
+        $q = db_query($conn, "SELECT id_cargo, cargo FROM dbo.Dota_Cargo", [], 'MAP cargos Excel');
         while ($r = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC))
             $mapCargo[mb_strtoupper(trim($r['cargo']), 'UTF-8')] = (int)$r['id_cargo'];
 
         $mapTarifa = [];
-        $q = sqlsrv_query($conn, "SELECT id_tipo_Tarifa, Tipo_Tarifa FROM dbo.Dota_Tipo_Tarifa");
+        $q = db_query($conn, "SELECT id_tipo_Tarifa, Tipo_Tarifa FROM dbo.Dota_Tipo_Tarifa", [], 'MAP tarifas Excel');
         while ($r = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC))
             $mapTarifa[mb_strtoupper(trim($r['Tipo_Tarifa']), 'UTF-8')] = (int)$r['id_tipo_Tarifa'];
 
         $mapEspecie = [];
-        $q = sqlsrv_query($conn, "SELECT id_especie, especie FROM dbo.especie");
-        if ($q) while ($r = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC))
+        $q = db_query($conn, "SELECT id_especie, especie FROM dbo.especie", [], 'MAP especie Excel');
+        while ($r = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC))
             $mapEspecie[mb_strtoupper(trim($r['especie']), 'UTF-8')] = (int)$r['id_especie'];
 
         // Columna opcional Contratista
         $iContratista = array_search('contratista', $headers);
 
         $mapContratista = [];
-        $q = sqlsrv_query($conn, "SELECT id, nombre FROM dbo.dota_contratista");
-        if ($q) while ($r = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC))
+        $q = db_query($conn, "SELECT id, nombre FROM dbo.dota_contratista", [], 'MAP contratistas Excel');
+        while ($r = sqlsrv_fetch_array($q, SQLSRV_FETCH_ASSOC))
             $mapContratista[mb_strtoupper(trim($r['nombre']), 'UTF-8')] = (int)$r['id'];
 
         $sql_ins = "INSERT INTO dbo.Dota_Valor_Dotacion (id_cargo, id_tipo_tarifa, id_especie, id_contratista) VALUES (?,?,?,?)";
@@ -169,8 +169,8 @@ if (isset($_POST['cargar_excel']) && isset($_FILES['archivo_excel']) && $_FILES[
             $id_contratista = $conRaw !== '' ? ($mapContratista[mb_strtoupper($conRaw, 'UTF-8')] ?? null) : null;
 
             // Evitar duplicados
-            $chk = sqlsrv_query($conn, $sql_chk, [$id_cargo, $id_tarifa, $id_especie, $id_contratista]);
-            if ($chk && sqlsrv_fetch($chk)) { $excel_duplicados++; continue; }
+            $chk = db_query($conn, $sql_chk, [$id_cargo, $id_tarifa, $id_especie, $id_contratista], 'CHECK dup Excel tarifa');
+            if (sqlsrv_fetch($chk)) { $excel_duplicados++; continue; }
 
             db_query($conn, $sql_ins, [$id_cargo, $id_tarifa, $id_especie, $id_contratista], "INSERT Excel tarifa");
             $excel_insertados++;
@@ -216,7 +216,7 @@ left JOIN dbo.dota_tipo_mo M ON M.id_mo = C.id_mo
 left JOIN dbo.especie E on D.id_especie = E.id_especie
 ;
 ";
-$query = sqlsrv_query($conn, $sql);
+$query = db_query($conn, $sql, [], 'SELECT Valor Dotacion resumen');
 
 
 $title = "Valor de tarifas por cargo";
@@ -377,19 +377,17 @@ if ($pagina_actual < 1) $pagina_actual = 1;
 
 // Manejar búsqueda
 $busqueda = isset($_GET['busqueda']) ? trim($_GET['busqueda']) : '';
-$filtro_busqueda = $busqueda ? "WHERE C.cargo LIKE '%" . str_replace("'", "''", $busqueda) . "%'" : '';
+$filtro_busqueda = $busqueda ? "WHERE C.cargo LIKE ?" : '';
+$search_params = $busqueda ? ["%$busqueda%"] : [];
 
 // Contar el total de registros para calcular el número de páginas
-$query_total_registros = sqlsrv_query($conn, "SELECT
+$query_total_registros = db_query($conn, "SELECT
  count(*) as total
 FROM dbo.Dota_Valor_Dotacion D
 LEFT JOIN dbo.Dota_Cargo C ON C.id_cargo = D.id_cargo
 LEFT JOIN dbo.Dota_Tipo_Tarifa T ON T.id_tipo_tarifa = D.id_tipo_tarifa
 LEFT JOIN dbo.dota_tipo_mo M ON M.id_mo = C.id_mo
-LEFT JOIN dbo.dota_contratista CON ON CON.id = D.id_contratista $filtro_busqueda");
-if ($query_total_registros === false) {
-    die(print_r(sqlsrv_errors(), true)); // Muestra los errores detallados de SQL Server
-}
+LEFT JOIN dbo.dota_contratista CON ON CON.id = D.id_contratista $filtro_busqueda", $search_params, 'COUNT Tarifas Cargo');
 $total_registros = sqlsrv_fetch_array($query_total_registros, SQLSRV_FETCH_ASSOC)['total'];
 $total_paginas = ceil($total_registros / $registros_por_pagina);
 
@@ -397,7 +395,7 @@ $total_paginas = ceil($total_registros / $registros_por_pagina);
 $offset = ($pagina_actual - 1) * $registros_por_pagina;
 
 // Consulta para obtener los registros con límite y desplazamiento
-$query = sqlsrv_query($conn,"SELECT
+$query = db_query($conn,"SELECT
   D.id,
   D.id_cargo,
   D.id_tipo_tarifa,
@@ -414,10 +412,7 @@ LEFT JOIN dbo.Dota_Tipo_Tarifa T ON T.id_tipo_tarifa = D.id_tipo_tarifa
 LEFT JOIN dbo.dota_tipo_mo M ON M.id_mo = C.id_mo
 LEFT JOIN dbo.especie E on D.id_especie = E.id_especie
 LEFT JOIN dbo.dota_contratista CON ON CON.id = D.id_contratista
-$filtro_busqueda ORDER BY D.id OFFSET $offset ROWS FETCH NEXT $registros_por_pagina ROWS ONLY");
-if ($query === false) {
-    die(print_r(sqlsrv_errors(), true)); // Muestra los errores si la consulta falla
-}
+$filtro_busqueda ORDER BY D.id OFFSET $offset ROWS FETCH NEXT $registros_por_pagina ROWS ONLY", $search_params, 'SELECT Tarifas Cargo paginado');
 
 ?>
 

@@ -2,20 +2,19 @@
 // Conexión a la base de datos
 require_once __DIR__ . '/../_bootstrap.php';
 require_once __DIR__ . '/../../app/lib/db.php';
-$username = nombre_usuario();
 $flash_error = null;
 $flash_ok    = null;
 
 if (!$conn) {
-    die(print_r(sqlsrv_errors(), true));
+    error_log("DB connection failed: " . db_errors_to_string());
+    die("Error de conexión. Contacte al administrador.");
 }
 
 // Agregar un nuevo registro
 if (isset($_POST['guardar'])) {
     $nombre_mo = strtoupper($_POST['mo']);
     $abrev     = strtoupper($_POST['abrev']);
-    $sql = "INSERT INTO [dbo].[dota_tipo_mo] ([nombre_mo],[abrev]) VALUES (?, ?)";
-    sqlsrv_query($conn, $sql, [$nombre_mo, $abrev]);
+    db_query($conn, "INSERT INTO [dbo].[dota_tipo_mo] ([nombre_mo],[abrev]) VALUES (?, ?)", [$nombre_mo, $abrev], 'INSERT tipo_mo');
 }
 
 // Editar un registro existente
@@ -23,20 +22,17 @@ if (isset($_POST['editar'])) {
     $id_mo     = (int)$_POST['id_mo'];
     $nombre_mo = strtoupper($_POST['nom_mo']);
     $abrev     = strtoupper($_POST['abrev']);
-    $sql = "UPDATE [dbo].[dota_tipo_mo] SET nombre_mo = ?, abrev = ? WHERE id_mo = ?";
-    sqlsrv_query($conn, $sql, [$nombre_mo, $abrev, $id_mo]);
+    db_query($conn, "UPDATE [dbo].[dota_tipo_mo] SET nombre_mo = ?, abrev = ? WHERE id_mo = ?", [$nombre_mo, $abrev, $id_mo], 'UPDATE tipo_mo');
 }
 
 // Eliminar un registro
 if (isset($_POST['eliminar'])) {
     $id_mo = (int)$_POST['id_mo'];
-    $sql   = "DELETE FROM [dbo].[dota_tipo_mo] WHERE id_mo = ?";
-    sqlsrv_query($conn, $sql, [$id_mo]);
+    db_query($conn, "DELETE FROM [dbo].[dota_tipo_mo] WHERE id_mo = ?", [$id_mo], 'DELETE tipo_mo');
 }
 
 // Consultar los registros
-$sql = "SELECT id_mo,nombre_mo,abrev FROM dota_tipo_mo";
-$query = sqlsrv_query($conn, $sql);
+$query = db_query($conn, "SELECT id_mo,nombre_mo,abrev FROM dota_tipo_mo", [], 'SELECT tipo_mo');
 
 
 
@@ -61,7 +57,6 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
 <!-- Contenido principal -->
 <div class="container">
     <div class="text-center my-4">
-        <h5 class="text-muted">Usuario: <?php echo htmlspecialchars($username); ?></h5>
         <h1 class="display-4"><?php echo $title ?></h1>
     </div>
 
@@ -99,18 +94,18 @@ if ($pagina_actual < 1) $pagina_actual = 1;
 // Manejar búsqueda
 $busqueda = isset($_GET['busqueda']) ? trim($_GET['busqueda']) : '';
 $filtro_busqueda = $busqueda ? "WHERE nombre_mo LIKE ?" : '';
+$search_params = $busqueda ? ["%$busqueda%"] : [];
 
 // Contar el total de registros para calcular el número de páginas
-$search_params = $busqueda ? ["%$busqueda%"] : null;
-$query_total_registros = sqlsrv_query($conn, "SELECT COUNT(*) AS total FROM [dota_tipo_mo] $filtro_busqueda", $search_params);
-$total_registros = sqlsrv_fetch_array($query_total_registros, SQLSRV_FETCH_ASSOC)['total'];
+$stmt_total = db_query($conn, "SELECT COUNT(*) AS total FROM [dota_tipo_mo] $filtro_busqueda", $search_params, 'COUNT tipo_mo');
+$total_registros = sqlsrv_fetch_array($stmt_total, SQLSRV_FETCH_ASSOC)['total'];
 $total_paginas = ceil($total_registros / $registros_por_pagina);
 
 // Calcular el índice de inicio para la consulta SQL
 $offset = ($pagina_actual - 1) * $registros_por_pagina;
 
 // Consulta para obtener los registros con límite y desplazamiento
-$query = sqlsrv_query($conn, "SELECT * FROM dota_tipo_mo $filtro_busqueda ORDER BY id_mo OFFSET $offset ROWS FETCH NEXT $registros_por_pagina ROWS ONLY", $search_params);
+$query = db_query($conn, "SELECT * FROM dota_tipo_mo $filtro_busqueda ORDER BY id_mo OFFSET $offset ROWS FETCH NEXT $registros_por_pagina ROWS ONLY", $search_params, 'SELECT tipo_mo paginado');
 ?>
 
 <!-- Formulario de búsqueda -->

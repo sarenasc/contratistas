@@ -1,6 +1,5 @@
 <?php
 require_once __DIR__ . '/../_bootstrap.php';
-$username = nombre_usuario();
 
 $flash_error = null;
 $flash_ok    = null;
@@ -114,7 +113,6 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
 <main class="container py-4">
 
     <div class="text-center my-4">
-        <h5 class="text-muted">Usuario: <?= htmlspecialchars($username) ?></h5>
         <h1 class="display-4">Gestión de Jefes de Área</h1>
     </div>
 
@@ -167,10 +165,11 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
                         </select>
                     </div>
                     <div class="col-md-1 d-flex align-items-end">
-                        <div class="form-check mb-2">
+                        <label class="form-check mb-2" for="chkActivo">
                             <input class="form-check-input" type="checkbox" name="activo" id="chkActivo" checked>
-                            <label class="form-check-label" for="chkActivo">Activo</label>
-                        </div>
+                            <span class="form-check-box"></span>
+                            <span class="form-check-label">Activo</span>
+                        </label>
                     </div>
                     <div class="col-md-1">
                         <button type="submit" name="guardar" class="btn btn-primary w-100">Guardar</button>

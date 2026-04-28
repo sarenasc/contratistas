@@ -242,12 +242,12 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
 
     <?php foreach ($lotes as $l):
         $estado_lbl = [
-            'borrador'       => ['secondary', 'Borrador'],
-            'pendiente'      => ['info',      'Pendiente'],
-            'aprobado_area'  => ['primary',   'Aprobado Área'],
-            'rechazado_area' => ['warning',   'Rechazado Área'],
-            'rechazado_ops'  => ['danger',    'Rechazado'],
-            'listo_factura'  => ['success',   'Aprobado'],
+            'borrador'       => ['badge-borrador',  'Borrador'],
+            'pendiente'      => ['badge-pendiente', 'Pendiente'],
+            'aprobado_area'  => ['badge-pendiente', 'Aprobado Área'],
+            'rechazado_area' => ['badge-vencido',   'Rechazado Área'],
+            'rechazado_ops'  => ['badge-vencido',   'Rechazado'],
+            'listo_factura'  => ['badge-pagado',    'Aprobado'],
         ];
         [$cls, $lbl] = $estado_lbl[$l['estado']] ?? ['secondary', $l['estado']];
         $prog   = $l['total_areas_unicas'] > 0
@@ -263,7 +263,7 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
                 <span class="text-muted ms-2 small"><?= htmlspecialchars($l['registro']) ?></span>
             </div>
             <div class="d-flex align-items-center gap-2 flex-wrap">
-                <span class="badge bg-<?= $cls ?>"><?= $lbl ?></span>
+                <span class="badge <?= $cls ?>"><span class="badge-dot"></span><?= $lbl ?></span>
                 <span class="text-muted small">
                     <?= $l['fecha_carga'] ?> — <?= htmlspecialchars($l['usuario_carga'] ?? '') ?>
                 </span>

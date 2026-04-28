@@ -421,13 +421,13 @@ $estado_actual = $lote_info['estado'] ?? '';
 $es_editable   = in_array($estado_actual, ['borrador', 'rechazado_area', 'rechazado_ops', 'sin_registro'], true);
 
 $badges = [
-    'borrador'       => ['cls' => 'secondary',          'label' => 'Borrador (en revision RRHH)'],
-    'pendiente'      => ['cls' => 'warning text-dark',  'label' => 'Pendiente aprobacion jefes'],
-    'aprobado_area'  => ['cls' => 'info text-dark',     'label' => 'Aprobado por areas'],
-    'rechazado_area' => ['cls' => 'danger',              'label' => 'Rechazado por area'],
-    'rechazado_ops'  => ['cls' => 'danger',              'label' => 'Rechazado por operaciones'],
-    'listo_factura'  => ['cls' => 'success',             'label' => 'Listo para facturar'],
-    'sin_registro'   => ['cls' => 'secondary',           'label' => 'Cargado (flujo anterior)'],
+    'borrador'       => ['cls' => 'badge-borrador',  'label' => 'Borrador (en revision RRHH)'],
+    'pendiente'      => ['cls' => 'badge-pendiente', 'label' => 'Pendiente aprobacion jefes'],
+    'aprobado_area'  => ['cls' => 'badge-pendiente', 'label' => 'Aprobado por areas'],
+    'rechazado_area' => ['cls' => 'badge-vencido',   'label' => 'Rechazado por area'],
+    'rechazado_ops'  => ['cls' => 'badge-vencido',   'label' => 'Rechazado por operaciones'],
+    'listo_factura'  => ['cls' => 'badge-pagado',    'label' => 'Listo para facturar'],
+    'sin_registro'   => ['cls' => 'badge-borrador',  'label' => 'Cargado (flujo anterior)'],
 ];
 
 $motivo_readonly = match($estado_actual) {
@@ -524,7 +524,7 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
         <div class="card-body py-2">
             <div class="row align-items-center">
                 <div class="col-auto">
-                    <span class="badge bg-<?= $b['cls'] ?> fs-6"><?= $b['label'] ?></span>
+                    <span class="badge <?= $b['cls'] ?> fs-6"><span class="badge-dot"></span><?= $b['label'] ?></span>
                 </div>
                 <div class="col">
                     <strong>Sem <?= (int)$lote_info['semana'] ?>/<?= (int)$lote_info['anio'] ?></strong>

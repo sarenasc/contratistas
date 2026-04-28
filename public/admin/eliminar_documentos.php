@@ -274,13 +274,13 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
     <tbody>
     <?php
     $badges = [
-        'borrador'       => 'secondary',
-        'pendiente'      => 'info',
-        'aprobado_area'  => 'primary',
-        'rechazado_area' => 'warning',
-        'rechazado_ops'  => 'danger',
-        'listo_factura'  => 'success',
-        'eliminado'      => 'dark',
+        'borrador'       => 'badge-borrador',
+        'pendiente'      => 'badge-pendiente',
+        'aprobado_area'  => 'badge-pendiente',
+        'rechazado_area' => 'badge-vencido',
+        'rechazado_ops'  => 'badge-vencido',
+        'listo_factura'  => 'badge-pagado',
+        'eliminado'      => 'badge-borrador',
     ];
     foreach ($lotes as $l):
         $bloqueado = (int)$l['en_proforma_cerrada'] > 0;
@@ -290,7 +290,7 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
         <td style="font-size:.78rem;word-break:break-all"><?= htmlspecialchars($l['registro']) ?></td>
         <td class="text-center"><?= (int)$l['semana'] ?> / <?= (int)$l['anio'] ?></td>
         <td class="text-center">
-            <span class="badge bg-<?= $cls_badge ?>"><?= htmlspecialchars($l['estado']) ?></span>
+            <span class="badge <?= $cls_badge ?>"><span class="badge-dot"></span><?= htmlspecialchars($l['estado']) ?></span>
             <?php if ($bloqueado): ?>
             <br><span class="badge bg-warning text-dark mt-1">Proforma cerrada</span>
             <?php endif; ?>

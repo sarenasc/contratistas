@@ -349,18 +349,21 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
     <div class="mb-3">
       <label class="form-label fw-semibold">Filtrar datos por:</label>
       <div class="d-flex flex-wrap gap-3 align-items-center">
-        <div class="form-check">
+        <label class="form-check form-check-radio" for="ftTodo">
           <input class="form-check-input" type="radio" name="filtro_tipo" id="ftTodo" value="todo" checked onchange="onFiltroChange()">
-          <label class="form-check-label" for="ftTodo">Todo el archivo</label>
-        </div>
-        <div class="form-check">
+          <span class="form-check-box"></span>
+          <span class="form-check-label">Todo el archivo</span>
+        </label>
+        <label class="form-check form-check-radio" for="ftSemana">
           <input class="form-check-input" type="radio" name="filtro_tipo" id="ftSemana" value="semana" onchange="onFiltroChange()">
-          <label class="form-check-label" for="ftSemana">Por Semana</label>
-        </div>
-        <div class="form-check">
+          <span class="form-check-box"></span>
+          <span class="form-check-label">Por Semana</span>
+        </label>
+        <label class="form-check form-check-radio" for="ftDia">
           <input class="form-check-input" type="radio" name="filtro_tipo" id="ftDia" value="dia" onchange="onFiltroChange()">
-          <label class="form-check-label" for="ftDia">Por Día</label>
-        </div>
+          <span class="form-check-box"></span>
+          <span class="form-check-label">Por Día</span>
+        </label>
 
         <div id="inputSemana" style="display:none;" class="d-flex gap-2">
           <input type="number" id="filtroSemana" class="form-control form-control-sm" placeholder="Nº semana" min="1" max="53" style="width:110px;">

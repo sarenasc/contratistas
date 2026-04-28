@@ -20,7 +20,8 @@
   <label class="form-label">Modelo</label>
   <input type="text" name="modelo" class="form-control" value="ZKTeco">
 </div>
-<div class="form-check">
+<label class="form-check">
   <input class="form-check-input" type="checkbox" name="activo" value="1" checked>
-  <label class="form-check-label">Activo</label>
-</div>
+  <span class="form-check-box"></span>
+  <span class="form-check-label">Activo</span>
+</label>

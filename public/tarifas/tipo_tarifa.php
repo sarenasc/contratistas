@@ -34,6 +34,8 @@ if (isset($_POST['toggle_kilo'])) {
     $caja = ($nuevo === 1) ? 0 : 0; // si activa kilo, caja se apaga
 
     db_query($conn, $sql, [$kilo, $caja, $id], 'Toggle Kilo');
+    header("Location: " . $_SERVER['REQUEST_URI']);
+    exit;
 }
 
 //si se activa caja, kilo = 0
@@ -50,71 +52,51 @@ if (isset($_POST['toggle_caja'])) {
     $kilo = ($nuevo === 1) ? 0 : 0;
 
     db_query($conn, $sql, [$caja, $kilo, $id], 'Toggle Caja');
+    header("Location: " . $_SERVER['REQUEST_URI']);
+    exit;
 }
 
 
+if (isset($_POST['toggle_activa'])) {
+    try {
+        $id = (int)($_POST['id_tipo'] ?? 0);
+        $activar = (int)($_POST['nuevo_estado'] ?? 0);
 
+        if ($activar === 1) {
+            $stmtGet = db_query($conn,
+                "SELECT Tipo_Tarifa, fecha_desde, fecha_hasta FROM dbo.Dota_Tipo_Tarifa WHERE id_tipo_Tarifa = ?",
+                [$id], 'GET tarifa para validar');
 
-if (isset($_POST['toggle_activa']) || isset($_POST['toggle_caja']) || isset($_POST['toggle_kilo'])) {
+            $rowTarifa = sqlsrv_fetch_array($stmtGet, SQLSRV_FETCH_ASSOC);
+            if (!$rowTarifa) {
+                throw new RuntimeException("No se encontró la tarifa para validar (id=$id).");
+            }
 
-    $id = (int)($_POST['id_tipo'] ?? 0);
-    $activar = (int)($_POST['nuevo_estado'] ?? 0);
+            $tipo  = $rowTarifa['Tipo_Tarifa'];
+            $desde = $rowTarifa['fecha_desde']->format('Y-m-d');
+            $hasta = $rowTarifa['fecha_hasta']->format('Y-m-d');
 
-    // Solo validar solapamiento al ACTIVAR una tarifa (no al toggle de kilo/caja)
-    if (isset($_POST['toggle_activa']) && $activar === 1) {
+            $stmtCheck = db_query($conn, "
+                SELECT 1 FROM dbo.Dota_Tipo_Tarifa
+                WHERE Tipo_Tarifa = ?
+                  AND tarifa_activa = 1
+                  AND id_tipo_Tarifa <> ?
+                  AND fecha_desde <= CAST(? AS DATE)
+                  AND fecha_hasta >= CAST(? AS DATE)
+            ", [$tipo, $id, $hasta, $desde], 'CHECK overlap toggle');
 
-        $sqlGet = "SELECT Tipo_Tarifa, fecha_desde, fecha_hasta,kilo,caja
-                   FROM dbo.Dota_Tipo_Tarifa
-                   WHERE id_tipo_Tarifa = ?";
-
-        $stmtGet = db_query($conn, $sqlGet, [$id], 'GET tarifa para validar');
-
-        
-        $rowTarifa = sqlsrv_fetch_array($stmtGet, SQLSRV_FETCH_ASSOC);
-
-        if (!$rowTarifa) {
-                // No existe el id, o el SELECT no devolvió filas
-                die("No se encontró la tarifa para validar (id_tipo_tarifa=$id).");
-         }
-
-        $tipo  = $rowTarifa['Tipo_Tarifa'];
-        $desde = $rowTarifa['fecha_desde']->format('Y-m-d');
-        $hasta = $rowTarifa['fecha_hasta']->format('Y-m-d');
-        $kilos = (int)$rowTarifa['kilo'] ?? 0;
-        $cajas = (int)$rowTarifa['caja'] ?? 0;
-
-
-        $sqlCheck = "
-            SELECT 1
-            FROM dbo.Dota_Tipo_Tarifa
-            WHERE Tipo_Tarifa = ?
-              AND tarifa_activa = 1
-              AND id_tipo_Tarifa <> {$id}
-              AND fecha_desde <= CAST(? AS DATE)
-              AND fecha_hasta >= CAST(? AS DATE)
-        ";
-
-        $stmtCheck = db_query($conn, $sqlCheck, [
-            $tipo,
-            $hasta,
-            $desde,
-        ], 'CHECK overlap toggle');
-
-        if (sqlsrv_fetch_array($stmtCheck)) {
-            throw new RuntimeException("No se puede activar: existe otra tarifa activa que se cruza en fechas.");
+            if (sqlsrv_fetch_array($stmtCheck)) {
+                throw new RuntimeException("No se puede activar: existe otra tarifa activa que se cruza en fechas.");
+            }
         }
+
+        db_query($conn, "UPDATE dbo.Dota_Tipo_Tarifa SET tarifa_activa = ? WHERE id_tipo_Tarifa = ?",
+            [$activar, $id], 'UPDATE toggle activa');
+        header("Location: " . $_SERVER['REQUEST_URI']);
+        exit;
+    } catch (RuntimeException $e) {
+        $flash_error = $e->getMessage();
     }
-
-    // Si pasa validación o es desactivación
-    $sqlUpdate = "UPDATE dbo.Dota_Tipo_Tarifa
-              SET tarifa_activa = ?
-              WHERE id_tipo_Tarifa = ?";
-
-    db_query($conn, $sqlUpdate, [$activar, $id], 'UPDATE toggle activa');
-    header("Location: " . $_SERVER['REQUEST_URI']);
-    exit;
-
-
 }
 
 
@@ -122,56 +104,6 @@ if (isset($_POST['toggle_activa']) || isset($_POST['toggle_caja']) || isset($_PO
     //guardar desde aqui
                     
                                 try {
-
-                                        if (isset($_POST['toggle_activa'])) {
-
-                                            $id = (int)$_POST['id_tipo'];
-                                            $activar = isset($_POST['tarifa_activa']) ? 1 : 0;
-
-                                            // Si se está activando, validar solapamiento
-                                            if ($activar === 1) {
-
-                                                $sqlGet = "SELECT Tipo_Tarifa, fecha_desde, fecha_hasta
-                                                        FROM dbo.Dota_Tipo_Tarifa
-                                                        WHERE id_tipo_Tarifa = ?";
-
-                                                $stmtGet = db_query($conn, $sqlGet, [$id], 'GET tarifa para validar');
-
-                                                $rowTarifa = sqlsrv_fetch_array($stmtGet, SQLSRV_FETCH_ASSOC);
-
-                                                $tipo  = $rowTarifa['Tipo_Tarifa'];
-                                                $desde = $rowTarifa['fecha_desde']->format('Y-m-d');
-                                                $hasta = $rowTarifa['fecha_hasta']->format('Y-m-d');
-
-                                                $sqlCheck = "
-                                                    SELECT 1
-                                                    FROM dbo.Dota_Tipo_Tarifa
-                                                    WHERE Tipo_Tarifa = ?
-                                                    AND tarifa_activa = 1
-                                                    AND id_tipo_Tarifa <> {$id}
-                                                    AND fecha_desde <= CAST(? AS DATE)
-                                                    AND fecha_hasta >= CAST(? AS DATE)
-                                                ";
-
-                                                $stmtCheck = db_query($conn, $sqlCheck, [
-                                                    $tipo,
-                                                    $hasta,
-                                                    $desde,
-                                                ], 'CHECK overlap toggle');
-
-                                                if (sqlsrv_fetch_array($stmtCheck)) {
-                                                    throw new RuntimeException("No se puede activar: existe otra tarifa activa que se cruza en fechas.");
-                                                }
-                                            }
-
-                                            // Si pasa validación o es desactivación
-                                            $sqlUpdate = "UPDATE dbo.Dota_Tipo_Tarifa
-                                                        SET tarifa_activa = ?
-                                                        WHERE id_tipo_Tarifa = ?";
-
-                                            db_query($conn, $sqlUpdate, [$activar, $id], 'UPDATE toggle activa');
-                                        }
-
 
                                             if (isset($_POST['guardar'])) {
 
@@ -263,11 +195,6 @@ if (isset($_POST['toggle_activa']) || isset($_POST['toggle_caja']) || isset($_PO
                                             );
 
                                          } catch (Throwable $e) {
-                                            /*echo "<pre>";
-                                            print_r($_POST);
-                                            echo "</pre>";
-                                            exit;*/
-
                                             $flash_error = $e->getMessage();
                                         }
 
@@ -282,8 +209,7 @@ if (isset($_POST['toggle_activa']) || isset($_POST['toggle_caja']) || isset($_PO
 // Eliminar un registro
 if (isset($_POST['eliminar'])) {
     $id_tipo = (int)$_POST['id_tipo'];
-    $sql = "DELETE FROM [dbo].[Dota_Tipo_Tarifa] WHERE id_tipo_Tarifa = ?";
-    sqlsrv_query($conn, $sql, [$id_tipo]);
+    db_query($conn, "DELETE FROM [dbo].[Dota_Tipo_Tarifa] WHERE id_tipo_Tarifa = ?", [$id_tipo], 'DELETE Dota_Tipo_Tarifa');
 }
 
 
@@ -416,7 +342,7 @@ $sql = "SELECT t.[id_tipo_Tarifa], t.[Tipo_Tarifa], t.[ValorContratista], t.[Por
         FROM [dbo].[Dota_Tipo_Tarifa] t
         LEFT JOIN dbo.dota_contratista c ON c.id = t.id_contratista
         ORDER BY t.[id_tipo_Tarifa] ASC";
-$query = sqlsrv_query($conn, $sql);
+$query = db_query($conn, $sql, [], 'SELECT Dota_Tipo_Tarifa');
 
 
 $title = "Tipo Tarifas";
@@ -496,32 +422,29 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
                                             </div>
                                             <div class="row g-3">
                                                 <div class="form-group col-12 col-md-4">
-                                                <div class="form-check mt-2">
+                                                <label class="form-check mt-2" for="tarifa_activa">
                                                 <input type="hidden" name="tarifa_activa" value="0">
                                                 <input class="form-check-input" type="checkbox" value="1" id="tarifa_activa" name="tarifa_activa" checked>
-                                                <label class="form-check-label" for="tarifa_activa">
-                                                    Tarifa activa
+                                                <span class="form-check-box"></span>
+                                                <span class="form-check-label">Tarifa activa</span>
                                                 </label>
-                                                </div>
                                                 </div>
                                                 <!-- Calculo de tarifas por kilos, para sacar unitario -->
                                                 <div class="form-group col-12 col-md-4">
-                                                <div class="form-check mt-2">
+                                                <label class="form-check mt-2" for="kilo">
                                                 <input type="hidden" name="kilo" value="0">
-                                                <input class="form-check-input" type="checkbox" value="1" id="kilo" name="kilo" checked onchange="toggleCalculo('kilos')" checked>
-                                                <label class="form-check-label" for="kilos">
-                                                    Calculo Kilos
+                                                <input class="form-check-input" type="checkbox" value="1" id="kilo" name="kilo" checked onchange="toggleCalculo('kilos')">
+                                                <span class="form-check-box"></span>
+                                                <span class="form-check-label">Calculo Kilos</span>
                                                 </label>
-                                                </div>
                                                 </div>
                                                 <div class="form-group col-12 col-md-4">
-                                                <div class="form-check mt-2">
+                                                <label class="form-check mt-2" for="cajas">
                                                 <input type="hidden" name="caja" value="0">
                                                 <input class="form-check-input" type="checkbox" value="1" id="cajas" name="caja" onchange="toggleCalculo('cajas')">
-                                                <label class="form-check-label" for="cajas">
-                                                    Calculo Cajas
+                                                <span class="form-check-box"></span>
+                                                <span class="form-check-label">Calculo Cajas</span>
                                                 </label>
-                                                </div>
                                                 </div>
                                             </div>
 

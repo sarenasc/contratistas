@@ -1224,16 +1224,17 @@ foreach ($resultado as $cid2 => $d2) {
       <label class="form-label fw-semibold small">Contratistas a incluir:</label>
       <div class="d-flex flex-wrap gap-3">
         <?php foreach ($resultado as $cid2 => $d2): ?>
-        <div class="form-check">
+        <label class="form-check" for="chk-<?= $cid2 ?>">
           <input type="checkbox" class="form-check-input chk-cont"
                  id="chk-<?= $cid2 ?>" value="<?= $cid2 ?>" checked>
-          <label class="form-check-label small" for="chk-<?= $cid2 ?>">
+          <span class="form-check-box"></span>
+          <span class="form-check-label small">
             <?= htmlspecialchars($d2['nombre']) ?>
             <?php if ($d2['valor_empresa']): ?>
             <span class="badge bg-info text-dark" style="font-size:.7rem">VE</span>
             <?php endif; ?>
-          </label>
-        </div>
+          </span>
+        </label>
         <?php endforeach; ?>
       </div>
     </div>

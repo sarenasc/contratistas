@@ -5,14 +5,14 @@
 /* --- Tokens de diseño --- */
 :root {
   /* Colores principales */
-  --color-primary:        #1A3C5E;
-  --color-primary-light:  #2563A8;
-  --color-primary-dark:   #0F2540;
-  --color-accent:         #F59E0B;
-  --color-accent-light:   #FDE68A;
+  --color-primary:        #155FA0;
+  --color-primary-light:  #1D6FB8;
+  --color-primary-dark:   #13151F;
+  --color-accent:         #5ECFCA;
+  --color-accent-light:   #CFF7F5;
 
   /* Neutros */
-  --color-bg:             #F4F6FA;
+  --color-bg:             #F0F4F8;
   --color-surface:        #FFFFFF;
   --color-surface-alt:    #EEF2F8;
   --color-border:         #D1D9E6;

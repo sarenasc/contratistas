@@ -1,6 +1,5 @@
 <?php
 require_once __DIR__ . '/../_bootstrap.php';
-$username = nombre_usuario();
 
 $flash_error = null;
 $flash_ok    = null;
@@ -69,7 +68,6 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
 <main class="container py-4">
 
     <div class="text-center my-4">
-        <h5 class="text-muted">Usuario: <?= htmlspecialchars($username) ?></h5>
         <h1 class="display-4">Gestión de Áreas</h1>
     </div>
 

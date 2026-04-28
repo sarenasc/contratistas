@@ -50,12 +50,12 @@ if ($stmtLL) while ($r = sqlsrv_fetch_array($stmtLL, SQLSRV_FETCH_ASSOC)) {
 }
 
 $badges = [
-    'borrador'       => 'secondary',
-    'pendiente'      => 'warning text-dark',
-    'aprobado_area'  => 'info text-dark',
-    'rechazado_area' => 'danger',
-    'rechazado_ops'  => 'danger',
-    'listo_factura'  => 'success',
+    'borrador'       => 'badge-borrador',
+    'pendiente'      => 'badge-pendiente',
+    'aprobado_area'  => 'badge-pendiente',
+    'rechazado_area' => 'badge-vencido',
+    'rechazado_ops'  => 'badge-vencido',
+    'listo_factura'  => 'badge-pagado',
 ];
 
 $labels = [
@@ -249,7 +249,7 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
         <div class="card-body py-2">
             <div class="row align-items-center">
                 <div class="col-auto">
-                    <span class="badge bg-<?= $cls ?> fs-6"><?= $lbl ?></span>
+                    <span class="badge <?= $cls ?> fs-6"><span class="badge-dot"></span><?= $lbl ?></span>
                 </div>
                 <div class="col">
                     <strong>Sem <?= (int)$lote['semana'] ?>/<?= (int)$lote['anio'] ?></strong>

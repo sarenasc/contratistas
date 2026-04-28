@@ -19,12 +19,12 @@ $estados_labels = [
     'listo_factura'  => 'Aprobado',
 ];
 $estados_colores = [
-    'borrador'       => 'secondary',
-    'pendiente'      => 'info',
-    'aprobado_area'  => 'primary',
-    'rechazado_area' => 'warning',
-    'rechazado_ops'  => 'danger',
-    'listo_factura'  => 'success',
+    'borrador'       => 'badge-borrador',
+    'pendiente'      => 'badge-pendiente',
+    'aprobado_area'  => 'badge-pendiente',
+    'rechazado_area' => 'badge-vencido',
+    'rechazado_ops'  => 'badge-vencido',
+    'listo_factura'  => 'badge-pagado',
 ];
 $estados_validos = array_keys($estados_labels);
 
@@ -235,7 +235,7 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
                 <td><?= htmlspecialchars($l['usuario_carga'] ?? '') ?></td>
                 <td class="text-center"><?= (int)$l['total_reg'] ?></td>
                 <td class="text-center">
-                    <span class="badge bg-<?= $cls_est ?>"><?= $lbl_est ?></span>
+                    <span class="badge <?= $cls_est ?>"><span class="badge-dot"></span><?= $lbl_est ?></span>
                     <?php if ($tiene_pf): ?>
                     <br><span class="badge bg-dark mt-1" title="Semana ya tiene proforma generada">🔒 Proforma</span>
                     <?php endif; ?>

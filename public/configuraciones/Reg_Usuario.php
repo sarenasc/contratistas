@@ -320,10 +320,11 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
                     <label class="form-label fw-bold">Módulos con acceso</label>
                     <div class="d-flex flex-wrap gap-3">
                         <?php foreach ($modulos_lista as $mod): ?>
-                        <div class="form-check">
+                        <label class="form-check" for="new_mod_<?= $mod ?>">
                             <input class="form-check-input" type="checkbox" name="mod_<?= $mod ?>" id="new_mod_<?= $mod ?>">
-                            <label class="form-check-label" for="new_mod_<?= $mod ?>"><?= $modulos_labels[$mod] ?? ucfirst($mod) ?></label>
-                        </div>
+                            <span class="form-check-box"></span>
+                            <span class="form-check-label"><?= $modulos_labels[$mod] ?? ucfirst($mod) ?></span>
+                        </label>
                         <?php endforeach; ?>
                     </div>
                 </div>
@@ -332,7 +333,7 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
                 <div class="row g-3 mb-3">
                     <div class="col-md-6">
                         <label class="form-label fw-bold">Áreas que puede aprobar</label>
-                        <select name="areas_aprobar[]" class="form-control select2-multi" multiple>
+                        <select name="areas_aprobar[]" data-multiselect data-placeholder="Seleccionar áreas..." data-search="Buscar área..." multiple>
                             <?php foreach ($areas_cat as $aid => $anom): ?>
                                 <option value="<?= $aid ?>"><?= htmlspecialchars($anom) ?></option>
                             <?php endforeach; ?>
@@ -340,7 +341,7 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
                     </div>
                     <div class="col-md-6">
                         <label class="form-label fw-bold">Cargos específicos adicionales</label>
-                        <select name="cargos_aprobar[]" class="form-control select2-multi" multiple>
+                        <select name="cargos_aprobar[]" data-multiselect data-placeholder="Seleccionar cargos..." data-search="Buscar cargo..." multiple>
                             <?php foreach ($cargos_cat as $cid => $cnom): ?>
                                 <option value="<?= $cid ?>"><?= htmlspecialchars($cnom) ?></option>
                             <?php endforeach; ?>
@@ -396,10 +397,11 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
                 </div>
 
                 <div class="d-flex align-items-center gap-3">
-                    <div class="form-check">
+                    <label class="form-check" for="new_activo">
                         <input class="form-check-input" type="checkbox" name="activo" id="new_activo" checked>
-                        <label class="form-check-label" for="new_activo">Activo</label>
-                    </div>
+                        <span class="form-check-box"></span>
+                        <span class="form-check-label">Activo</span>
+                    </label>
                     <button type="submit" name="guardar" class="btn btn-primary">Guardar usuario</button>
                 </div>
             </form>
@@ -555,10 +557,11 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
                         <label class="form-label fw-bold">Módulos con acceso</label>
                         <div class="d-flex flex-wrap gap-3" id="edit-modulos">
                             <?php foreach ($modulos_lista as $mod): ?>
-                            <div class="form-check">
+                            <label class="form-check" for="edit_mod_<?= $mod ?>">
                                 <input class="form-check-input" type="checkbox" name="mod_<?= $mod ?>" id="edit_mod_<?= $mod ?>">
-                                <label class="form-check-label" for="edit_mod_<?= $mod ?>"><?= $modulos_labels[$mod] ?? ucfirst($mod) ?></label>
-                            </div>
+                                <span class="form-check-box"></span>
+                                <span class="form-check-label"><?= $modulos_labels[$mod] ?? ucfirst($mod) ?></span>
+                            </label>
                             <?php endforeach; ?>
                         </div>
                     </div>
@@ -567,7 +570,7 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
                     <div class="row g-3 mb-3">
                         <div class="col-md-6">
                             <label class="form-label fw-bold">Áreas que puede aprobar</label>
-                            <select name="areas_aprobar[]" id="edit-areas-aprobar" class="form-control select2-multi" multiple>
+                            <select name="areas_aprobar[]" id="edit-areas-aprobar" data-multiselect data-placeholder="Seleccionar áreas..." data-search="Buscar área..." multiple>
                                 <?php foreach ($areas_cat as $aid => $anom): ?>
                                     <option value="<?= $aid ?>"><?= htmlspecialchars($anom) ?></option>
                                 <?php endforeach; ?>
@@ -575,7 +578,7 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-bold">Cargos específicos adicionales</label>
-                            <select name="cargos_aprobar[]" id="edit-cargos-aprobar" class="form-control select2-multi" multiple>
+                            <select name="cargos_aprobar[]" id="edit-cargos-aprobar" data-multiselect data-placeholder="Seleccionar cargos..." data-search="Buscar cargo..." multiple>
                                 <?php foreach ($cargos_cat as $cid => $cnom): ?>
                                     <option value="<?= $cid ?>"><?= htmlspecialchars($cnom) ?></option>
                                 <?php endforeach; ?>
@@ -630,10 +633,11 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
                         </div>
                     </div>
 
-                    <div class="form-check">
+                    <label class="form-check" for="edit-activo">
                         <input class="form-check-input" type="checkbox" name="activo" id="edit-activo" value="1">
-                        <label class="form-check-label" for="edit-activo">Activo</label>
-                    </div>
+                        <span class="form-check-box"></span>
+                        <span class="form-check-label">Activo</span>
+                    </label>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -647,10 +651,6 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
 <?php include __DIR__ . '/../partials/footer.php'; ?>
 
 <script>
-$(document).ready(function () {
-    $('.select2-multi').select2({ width: '100%', placeholder: 'Seleccionar...' });
-});
-
 function toggleAreaNivel(sel, prefix) {
     const nivel = parseInt(sel.value);
     document.querySelectorAll('.' + prefix + '-area-turno').forEach(el => {
@@ -680,11 +680,11 @@ function abrirModal(u) {
     document.getElementById('edit_mod_<?= $mod ?>').checked = u.modulos.includes('<?= $mod ?>');
     <?php endforeach; ?>
 
-    // Áreas de aprobación (Select2)
-    $('#edit-areas-aprobar').val(u.areas_aprobar.map(String)).trigger('change');
+    // Áreas de aprobación
+    document.getElementById('edit-areas-aprobar').msSetValues(u.areas_aprobar.map(String));
 
-    // Cargos específicos (Select2)
-    $('#edit-cargos-aprobar').val(u.cargos_aprobar.map(String)).trigger('change');
+    // Cargos específicos
+    document.getElementById('edit-cargos-aprobar').msSetValues(u.cargos_aprobar.map(String));
 
     new bootstrap.Modal(document.getElementById('modalEditar')).show();
 }

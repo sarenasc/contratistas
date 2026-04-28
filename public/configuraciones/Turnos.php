@@ -7,7 +7,6 @@ if (!puede_modulo('configuraciones') && !es_admin()) {
     exit;
 }
 
-$username = nombre_usuario();
 $flash_error = null;
 $flash_ok    = null;
 
@@ -266,7 +265,6 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
 
 <main class="container py-4">
     <div class="text-center my-4">
-        <h5 class="text-muted">Usuario: <?= htmlspecialchars($username) ?></h5>
         <h1 class="display-4">Gestion de Turnos</h1>
         <p class="text-muted mb-0">Define los dias y horarios que usara el sistema para interpretar las marcas del reloj.</p>
     </div>

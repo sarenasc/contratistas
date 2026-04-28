@@ -4,7 +4,6 @@ require_once __DIR__ . '/../../vendor/autoload.php';
 
 use PhpOffice\PhpSpreadsheet\IOFactory;
 
-$username    = nombre_usuario();
 $flash_error = null;
 $flash_ok    = null;
 
@@ -187,7 +186,6 @@ include __DIR__ . '/../partials/navbar_wrapper.php';
 <?php endif; ?>
 
 <div class="text-center my-4">
-    <h5 class="text-muted">Usuario: <?= htmlspecialchars($username) ?></h5>
     <h1 class="display-4">Gestión de Labores</h1>
 </div>
 
