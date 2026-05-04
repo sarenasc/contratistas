@@ -6,6 +6,10 @@ storage/asistencia/*
 storage/Asistencia/*
 
 # Variables de entorno con credenciales reales
+.env
+.env.*
+!.env.example
+!.env.docker.example
 config/.env
 
 # Archivos de desarrollo local

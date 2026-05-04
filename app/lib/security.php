@@ -64,10 +64,10 @@ function apply_security_headers(): void
     $csp = implode('; ', [
         "default-src 'self'",
         "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
-        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
+        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com https://fonts.gstatic.com",
         "img-src 'self' data: blob:",
-        "font-src 'self' https://cdn.jsdelivr.net",
-        "connect-src 'self'",
+        "font-src 'self' https://cdn.jsdelivr.net https://fonts.googleapis.com https://fonts.gstatic.com",
+        "connect-src 'self' https://cdn.jsdelivr.net",
         "object-src 'none'",
         "base-uri 'self'",
         "form-action 'self'",

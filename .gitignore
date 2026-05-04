@@ -1,4 +1,8 @@
 # Credenciales — nunca subir
+.env
+.env.*
+!.env.example
+!.env.docker.example
 config/.env
 
 # Repositorio git anidado creado por error

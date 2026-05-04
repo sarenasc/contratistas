@@ -21,6 +21,8 @@ services:
     depends_on:
       sqlserver:
         condition: service_healthy
+      sqlserver-init:
+        condition: service_completed_successfully
     networks:
       - contratista_net
 
@@ -37,17 +39,35 @@ services:
       - "1433:1433"
     environment:
       ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: "${DB_PASSWORD}"
+      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD:-CambiaEstaPassword@2024}"
       MSSQL_PID: "Developer"
       TZ: "America/Santiago"
     volumes:
       - sqlserver_data:/var/opt/mssql
     healthcheck:
-      test: /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "$${MSSQL_SA_PASSWORD}" -Q "SELECT 1" || exit 1
+      test: ["CMD-SHELL", "SQLCMD=/opt/mssql-tools18/bin/sqlcmd; TRUST_CERT=-C; [ -x $$SQLCMD ] || { SQLCMD=/opt/mssql-tools/bin/sqlcmd; TRUST_CERT=; }; $$SQLCMD -S localhost -U sa -P \"$${MSSQL_SA_PASSWORD}\" -Q \"SELECT 1\" $$TRUST_CERT || exit 1"]
       interval: 10s
       retries: 10
       start_period: 30s
       timeout: 5s
+    networks:
+      - contratista_net
+
+  # ── Carga inicial del esquema de BD ─────────────────────────────────────────
+  sqlserver-init:
+    image: mcr.microsoft.com/mssql-tools
+    container_name: contratista_sqlserver_init
+    restart: "no"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    environment:
+      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD:-CambiaEstaPassword@2024}"
+    volumes:
+      - ./setup.sql:/setup.sql:ro
+    command: >
+      /bin/bash -lc 'SQLCMD=/opt/mssql-tools/bin/sqlcmd;
+      "$${SQLCMD}" -S sqlserver -U sa -P "$${MSSQL_SA_PASSWORD}" -d master -i /setup.sql -b'
     networks:
       - contratista_net
 
