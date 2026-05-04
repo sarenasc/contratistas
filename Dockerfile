@@ -6,6 +6,10 @@ RUN apt-get update && apt-get install -y \
         gnupg2 \
         apt-transport-https \
         unzip \
+        autoconf \
+        g++ \
+        make \
+        pkg-config \
         libzip-dev \
         libpng-dev \
         libjpeg-dev \
@@ -23,7 +27,9 @@ RUN curl -sSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor 
     && rm -rf /var/lib/apt/lists/*
 
 # ── Extensiones PHP ───────────────────────────────────────────────────────────
-RUN pecl install sqlsrv pdo_sqlsrv \
+# La version 5.12 es compatible con PHP 8.2. Evita que PECL instale una version
+# mas nueva que pueda requerir otra version de PHP.
+RUN pecl install sqlsrv-5.12.0 pdo_sqlsrv-5.12.0 \
     && docker-php-ext-enable sqlsrv pdo_sqlsrv \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install gd zip
